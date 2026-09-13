@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Готвач БГ — Рецепти всеки ден</title>
+<meta name="description" content="Реални, проверени рецепти от цял свят, преведени на български. Категории, диетични филтри и нови ястия всеки ден.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FAF3E8;
+    --bg-card: #FFFFFF;
+    --text: #3B2F2A;
+    --text-muted: #8A7A6D;
+    --accent: #B5502E;
+    --accent-hover: #963F22;
+    --border: #E4D8C7;
+    --tag-bg: #F0E4D3;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif;margin:0 0 8px;}
+  a{color:var(--accent);text-decoration:none;}
+  header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 20px;position:sticky;top:0;z-index:10;}
+  .header-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  .logo{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--accent);}
+  .search-box{flex:1;min-width:180px;max-width:320px;}
+  .search-box input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:var(--bg);color:var(--text);}
+  nav.admin-link{font-size:13px;color:var(--text-muted);}
+  main{max-width:960px;margin:0 auto;padding:20px;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+  .filter-btn{padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit;}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;}
+  .card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s;}
+  .card:hover{transform:translateY(-2px);}
+  .card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;}
+  .card-body{padding:12px 14px 16px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card-body h3{font-size:16px;line-height:1.3;}
+  .card-meta{font-size:12px;color:var(--text-muted);}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+  .tag{background:var(--tag-bg);color:var(--accent);font-size:11px;padding:2px 8px;border-radius:999px;}
+  .empty-state{text-align:center;color:var(--text-muted);padding:60px 20px;}
+  .back-link{display:inline-block;margin-bottom:16px;font-size:14px;color:var(--text-muted);}
+  .recipe-detail img{width:100%;border-radius:10px;margin-bottom:16px;max-height:360px;object-fit:cover;}
+  .recipe-detail .meta{color:var(--text-muted);font-size:13px;margin-bottom:16px;}
+  .ingredients-list{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;}
+  .ingredients-list ul{padding-left:18px;margin:0;}
+  .ingredients-list li{margin-bottom:6px;}
+  .instructions p{margin-bottom:14px;}
+  .comments{margin-top:32px;border-top:1px solid var(--border);padding-top:20px;}
+  .comment{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:10px;}
+  .comment .cname{font-weight:600;font-size:13px;}
+  .comment .cdate{color:var(--text-muted);font-size:11px;}
+  .comment-form{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
+  .comment-form input, .comment-form textarea{padding:9px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:14px;background:var(--bg-card);color:var(--text);}
+  .comment-form textarea{min-height:70px;resize:vertical;}
+  .comment-form .hp{display:none;}
+  button{cursor:pointer;font-family:inherit;}
+  .btn{background:var(--accent);color:#fff;border:none;padding:9px 18px;border-radius:6px;font-size:14px;}
+  .btn:hover{background:var(--accent-hover);}
+  .btn.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+  .btn.danger{background:#a3372b;}
+  .admin-box{max-width:420px;margin:40px auto;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:24px;}
+  .admin-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:12px;font-family:inherit;background:var(--bg);color:var(--text);}
+  .admin-panel textarea{width:100%;min-height:100px;font-family:inherit;padding:9px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:10px;background:var(--bg-card);color:var(--text);}
+  .admin-panel input[type=text], .admin-panel input[type=url]{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:10px;font-family:inherit;background:var(--bg-card);color:var(--text);}
+  .admin-panel label{font-size:13px;display:block;margin-bottom:4px;color:var(--text-muted);}
+  .admin-panel .checks{display:flex;gap:16px;margin-bottom:14px;font-size:13px;}
+  .admin-row{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .admin-row .title{font-weight:600;font-size:14px;}
+  .admin-row .actions{display:flex;gap:6px;}
+  .tab-bar{display:flex;gap:10px;margin-bottom:20px;}
+  .tab-bar button{padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);}
+  .tab-bar button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <a href="#/" class="logo">Готвач БГ</a>
+    <div class="search-box"><input id="searchInput" type="text" placeholder="Търси рецепта..."></div>
+    <nav class="admin-link"><a href="#/admin">Админ</a></nav>
+  </div>
+</header>
+<main id="app"></main>
+
+<script>
+const state = { recipes: [], loaded: false, search: '', dietFilter: 'all', categoryFilter: 'all' };
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Грешка');
+  return data;
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function ensureRecipesLoaded() {
+  if (state.loaded) return;
+  state.recipes = await fetchJSON('/api/recipes');
+  state.loaded = true;
+}
+
+function getAdminKey() { return localStorage.getItem('gotvachbg_admin_key'); }
+function setAdminKey(k) { localStorage.setItem('gotvachbg_admin_key', k); }
+function clearAdminKey() { localStorage.removeItem('gotvachbg_admin_key'); }
+
+function router() {
+  const hash = location.hash || '#/';
+  const app = document.getElementById('app');
+  if (hash.startsWith('#/recipe/')) {
+    renderRecipeDetail(app, hash.split('/')[2]);
+  } else if (hash === '#/admin') {
+    renderAdmin(app);
+  } else {
+    renderHome(app);
+  }
+}
+
+async function renderHome(app) {
+  app.innerHTML = '<p>Зареждане...</p>';
+  await ensureRecipesLoaded();
+
+  const categories = ['all', ...new Set(state.recipes.map(r => r.category))];
+  const diets = ['all', 'кето', 'без захар', 'вегетарианско'];
+
+  let list = state.recipes;
+  if (state.categoryFilter !== 'all') list = list.filter(r => r.category === state.categoryFilter);
+  if (state.dietFilter !== 'all') list = list.filter(r => r.dietTags.includes(state.dietFilter));
+  if (state.search.trim()) {
+    const q = state.search.trim().toLowerCase();
+    list = list.filter(r => r.title.toLowerCase().includes(q));
+  }
+
+  const catBtns = categories.map(c =>
+    `<button class="filter-btn ${state.categoryFilter === c ? 'active' : ''}" data-cat="${escapeHtml(c)}">${c === 'all' ? 'Всички кухни' : escapeHtml(c)}</button>`
+  ).join('');
+
+  const dietBtns = diets.map(d =>
+    `<button class="filter-btn ${state.dietFilter === d ? 'active' : ''}" data-diet="${escapeHtml(d)}">${d === 'all' ? 'Всички диети' : escapeHtml(d)}</button>`
+  ).join('');
+
+  const cards = list.map(r => `
+    <a class="card" href="#/recipe/${r.id}">
+      <img src="${escapeHtml(r.image || '')}" alt="${escapeHtml(r.title)}" loading="lazy">
+      <div class="card-body">
+        <h3>${escapeHtml(r.title)}</h3>
+        <div class="card-meta">${escapeHtml(r.category)} · ${escapeHtml(r.area)}</div>
+        <div class="tags">${r.dietTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+      </div>
+    </a>
+  `).join('');
+
+  app.innerHTML = `
+    <div class="filters">${catBtns}</div>
+    <div class="filters">${dietBtns}</div>
+    <div class="grid">${cards || '<div class="empty-state">Няма намерени рецепти.</div>'}</div>
+  `;
+
+  app.querySelectorAll('[data-cat]').forEach(btn => {
+    btn.onclick = () => { state.categoryFilter = btn.dataset.cat; renderHome(app); };
+  });
+  app.querySelectorAll('[data-diet]').forEach(btn => {
+    btn.onclick = () => { state.dietFilter = btn.dataset.diet; renderHome(app); };
+  });
+}
+
+async function renderRecipeDetail(app, id) {
+  app.innerHTML = '<p>Зареждане...</p>';
+  let r;
+  try {
+    r = await fetchJSON('/api/recipes/' + id);
+  } catch (e) {
+    app.innerHTML = '<p>Рецептата не е намерена.</p>';
+    return;
+  }
+  const comments = await fetchJSON('/api/comments/' + id).catch(() => []);
+
+  app.innerHTML = `
+    <a href="#/" class="back-link">← Всички рецепти</a>
+    <div class="recipe-detail">
+      <h1>${escapeHtml(r.title)}</h1>
+      <div class="meta">${escapeHtml(r.author)} · ${escapeHtml(r.date)} · ${escapeHtml(r.category)} · ${escapeHtml(r.area)}</div>
+      ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}">` : ''}
+      <div class="tags">${r.dietTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
+      <div class="ingredients-list">
+        <h2>Съставки</h2>
+        <ul>${r.ingredients.map(i => `<li>${escapeHtml(i.measure)} ${escapeHtml(i.name)}</li>`).join('')}</ul>
+      </div>
+      <div class="instructions">
+        <h2>Начин на приготвяне</h2>
+        ${r.instructions.split(/\n\n+/).map(p => `<p>${escapeHtml(p)}</p>`).join('')}
+      </div>
+      ${r.youtube ? `<p><a href="${escapeHtml(r.youtube)}" target="_blank" rel="noopener">Видео рецепта →</a></p>` : ''}
+      <div class="comments">
+        <h2>Коментари</h2>
+        <div id="commentsList">
+          ${comments.map(c => `
+            <div class="comment">
+              <div class="cname">${escapeHtml(c.name)} <span class="cdate">· ${escapeHtml(c.date)}</span></div>
+              <div>${escapeHtml(c.text)}</div>
+            </div>
+          `).join('') || '<p style="color:var(--text-muted);font-size:14px;">Все още няма коментари.</p>'}
+        </div>
+        <form class="comment-form" id="commentForm">
+          <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+          <input type="text" name="name" placeholder="Твоето име" required maxlength="80">
+          <textarea name="text" placeholder="Сподели мнение или съвет..." required maxlength="2000"></textarea>
+          <button class="btn" type="submit">Публикувай коментар</button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('commentForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const body = {
+      name: form.name.value,
+      text: form.text.value,
+      website: form.website.value,
+    };
+    try {
+      await fetchJSON('/api/comments/' + id, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      renderRecipeDetail(app, id);
+    } catch (err) {
+      alert('Грешка при изпращане на коментара.');
+    }
+  };
+}
+
+function renderAdmin(app) {
+  const key = getAdminKey();
+  if (!key) {
+    app.innerHTML = `
+      <div class="admin-box">
+        <h2>Вход в админ панела</h2>
+        <input id="adminPassword" type="password" placeholder="Парола">
+        <button class="btn" id="loginBtn">Вход</button>
+        <p id="loginError" style="color:#a3372b;font-size:13px;"></p>
+      </div>
+    `;
+    document.getElementById('loginBtn').onclick = async () => {
+      const password = document.getElementById('adminPassword').value;
+      try {
+        const res = await fetchJSON('/api/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        setAdminKey(res.key);
+        renderAdmin(app);
+      } catch (e) {
+        document.getElementById('loginError').textContent = 'Грешна парола.';
+      }
+    };
+    return;
+  }
+
+  renderAdminPanel(app, key);
+}
+
+async function renderAdminPanel(app, key, tab = 'recipes') {
+  app.innerHTML = `
+    <div class="admin-panel">
+      <div class="tab-bar">
+        <button data-tab="recipes" class="${tab === 'recipes' ? 'active' : ''}">Рецепти</button>
+        <button data-tab="add" class="${tab === 'add' ? 'active' : ''}">Добави рецепта</button>
+        <button data-tab="comments" class="${tab === 'comments' ? 'active' : ''}">Коментари</button>
+        <button class="btn secondary" id="logoutBtn" style="margin-left:auto;">Изход</button>
+      </div>
+      <div id="tabContent">Зареждане...</div>
+    </div>
+  `;
+
+  document.getElementById('logoutBtn').onclick = () => { clearAdminKey(); router(); };
+  app.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.onclick = () => renderAdminPanel(app, key, btn.dataset.tab);
+  });
+
+  const content = document.getElementById('tabContent');
+
+  if (tab === 'recipes') {
+    await ensureRecipesLoaded();
+    content.innerHTML = state.recipes.map(r => `
+      <div class="admin-row">
+        <span class="title">${escapeHtml(r.title)}</span>
+        <span class="actions">
+          <button class="btn secondary" data-edit="${r.id}">Редактирай</button>
+          <button class="btn danger" data-del="${r.id}">Изтрий</button>
+        </span>
+      </div>
+    `).join('') || '<p>Няма рецепти.</p>';
+
+    content.querySelectorAll('[data-del]').forEach(btn => {
+      btn.onclick = async () => {
+        if (!confirm('Да изтрия ли тази рецепта?')) return;
+        await fetchJSON('/api/recipes/' + btn.dataset.del, { method: 'DELETE', headers: { 'x-admin-key': key } });
+        state.loaded = false;
+        renderAdminPanel(app, key, 'recipes');
+      };
+    });
+    content.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.onclick = () => renderRecipeForm(app, key, btn.dataset.edit);
+    });
+  } else if (tab === 'add') {
+    renderRecipeForm(app, key, null);
+  } else if (tab === 'comments') {
+    const comments = await fetchJSON('/api/all-comments', { headers: { 'x-admin-key': key } }).catch(() => []);
+    content.innerHTML = comments.map(c => `
+      <div class="admin-row">
+        <span>
+          <span class="title">${escapeHtml(c.name)}</span> — ${escapeHtml(c.text)}<br>
+          <span style="color:var(--text-muted);font-size:12px;">към „${escapeHtml(c.recipeTitle || '')}" · ${escapeHtml(c.date)}</span>
+        </span>
+        <span class="actions"><button class="btn danger" data-delc="${c.id}" data-recipe="${c.recipeId}">Изтрий</button></span>
+      </div>
+    `).join('') || '<p>Няма коментари.</p>';
+
+    content.querySelectorAll('[data-delc]').forEach(btn => {
+      btn.onclick = async () => {
+        await fetchJSON(`/api/comments/${btn.dataset.recipe}?id=${btn.dataset.delc}`, {
+          method: 'DELETE',
+          headers: { 'x-admin-key': key },
+        });
+        renderAdminPanel(app, key, 'comments');
+      };
+    });
+  }
+}
+
+async function renderRecipeForm(app, key, id) {
+  const content = document.getElementById('tabContent');
+  let r = { title:'', excerpt:'', ingredients:[], instructions:'', category:'', area:'', dietTags:[], image:'', youtube:'', featured:false };
+  if (id) {
+    r = await fetchJSON('/api/recipes/' + id);
+  }
+  const ingredientsText = r.ingredients.map(i => `${i.name} | ${i.measure}`).join('\n');
+
+  content.innerHTML = `
+    <h2>${id ? 'Редактиране на рецепта' : 'Нова рецепта'}</h2>
+    <label>Заглавие</label>
+    <input type="text" id="f_title" value="${escapeHtml(r.title)}">
+    <label>Кратко описание</label>
+    <input type="text" id="f_excerpt" value="${escapeHtml(r.excerpt)}">
+    <label>Съставки (по един ред, формат: име | количество)</label>
+    <textarea id="f_ingredients">${escapeHtml(ingredientsText)}</textarea>
+    <label>Начин на приготвяне (абзаци разделени с празен ред)</label>
+    <textarea id="f_instructions" style="min-height:160px;">${escapeHtml(r.instructions)}</textarea>
+    <label>Категория</label>
+    <input type="text" id="f_category" value="${escapeHtml(r.category)}">
+    <label>Кухня</label>
+    <input type="text" id="f_area" value="${escapeHtml(r.area)}">
+    <label>Снимка (URL)</label>
+    <input type="url" id="f_image" value="${escapeHtml(r.image || '')}">
+    <label>YouTube линк (по избор)</label>
+    <input type="url" id="f_youtube" value="${escapeHtml(r.youtube || '')}">
+    <div class="checks">
+      <label><input type="checkbox" id="f_keto" ${r.dietTags.includes('кето') ? 'checked' : ''}> Кето</label>
+      <label><input type="checkbox" id="f_nosugar" ${r.dietTags.includes('без захар') ? 'checked' : ''}> Без захар</label>
+      <label><input type="checkbox" id="f_veg" ${r.dietTags.includes('вегетарианско') ? 'checked' : ''}> Вегетарианско</label>
+      <label><input type="checkbox" id="f_featured" ${r.featured ? 'checked' : ''}> Препоръчана (начална страница)</label>
+    </div>
+    <button class="btn" id="saveBtn">${id ? 'Запази промените' : 'Публикувай'}</button>
+  `;
+
+  document.getElementById('saveBtn').onclick = async () => {
+    const ingredients = document.getElementById('f_ingredients').value
+      .split('\n').filter(Boolean)
+      .map(line => {
+        const [name, measure] = line.split('|').map(s => (s || '').trim());
+        return { name, measure: measure || '' };
+      });
+    const dietTags = [];
+    if (document.getElementById('f_keto').checked) dietTags.push('кето');
+    if (document.getElementById('f_nosugar').checked) dietTags.push('без захар');
+    if (document.getElementById('f_veg').checked) dietTags.push('вегетарианско');
+
+    const body = {
+      title: document.getElementById('f_title').value,
+      excerpt: document.getElementById('f_excerpt').value,
+      ingredients,
+      instructions: document.getElementById('f_instructions').value,
+      category: document.getElementById('f_category').value,
+      area: document.getElementById('f_area').value,
+      dietTags,
+      image: document.getElementById('f_image').value,
+      youtube: document.getElementById('f_youtube').value,
+      featured: document.getElementById('f_featured').checked,
+    };
+
+    try {
+      if (id) {
+        await fetchJSON('/api/recipes/' + id, {
+          method: 'PUT', headers: { 'content-type': 'application/json', 'x-admin-key': key },
+          body: JSON.stringify(body),
+        });
+      } else {
+        await fetchJSON('/api/recipes', {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': key },
+          body: JSON.stringify(body),
+        });
+      }
+      state.loaded = false;
+      renderAdminPanel(app, key, 'recipes');
+    } catch (e) {
+      alert('Грешка при запис: ' + e.message);
+    }
+  };
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  state.search = e.target.value;
+  if (!location.hash.startsWith('#/recipe/') && location.hash !== '#/admin') router();
+});
+
+window.addEventListener('hashchange', router);
+router();
+</script>
+</body>
+</html>
