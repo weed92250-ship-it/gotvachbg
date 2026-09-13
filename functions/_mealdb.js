@@ -49,7 +49,7 @@ function computeDietTags(ingredients) {
   return tags;
 }
 
-async function translateRecipeWithAI(env, meal, ingredientsEn) {
+async function translateRecipeWithAI(env, meal, ingredientsEn, debugBucket) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
@@ -58,4 +58,101 @@ async function translateRecipeWithAI(env, meal, ingredientsEn) {
 
 Заглавие: ${meal.strMeal}
 
-Съставки (формат
+Съставки (формат "количество | име"):
+${ingredientsListText}
+
+Начин на приготвяне:
+${meal.strInstructions}
+
+ВЪРНИ САМО ВАЛИДЕН JSON БЕЗ НИКАКЪВ ДРУГ ТЕКСТ, СИМВОЛИ ИЛИ MARKDOWN CODEBLOCKS. Формат:
+{
+  "title": "преведеното заглавие на български, изцяло на кирилица",
+  "ingredients": [{"measure": "преведено количество", "name": "преведена съставка"}, ...същия брой елементи, същия ред],
+  "instructions": "преведените стъпки на български, с нов ред между отделните стъпки"
+}`;
+
+  let aiResponse;
+  try {
+    aiResponse = await env.AI.run('@cf/zai-org/glm-4.7-flash', {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+      reasoning_effort: 'low',
+      chat_template_kwargs: { enable_thinking: false },
+    });
+  } catch (e) {
+    debugBucket.push({ stage: 'ai_call_error', error: String(e && e.message ? e.message : e) });
+    return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+  }
+
+  let rawText = (aiResponse.response || '').trim();
+  debugBucket.push({ stage: 'raw_ai_response', rawText: rawText.slice(0, 1500), fullResponseObject: JSON.stringify(aiResponse).slice(0, 500) });
+
+  if (rawText.startsWith('```')) {
+    rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+  }
+
+  try {
+    const data = JSON.parse(rawText);
+    if (data.title && data.instructions && Array.isArray(data.ingredients) && data.ingredients.length === ingredientsEn.length) {
+      debugBucket.push({ stage: 'parse_success' });
+      return data;
+    }
+    debugBucket.push({ stage: 'parse_shape_mismatch', gotIngredientsLength: (data.ingredients || []).length, expectedLength: ingredientsEn.length });
+  } catch (e) {
+    debugBucket.push({ stage: 'json_parse_error', error: String(e && e.message ? e.message : e) });
+  }
+
+  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+}
+
+async function fetchRandomMeal() {
+  const res = await fetch(`${MEALDB_BASE}/random.php`);
+  const data = await res.json();
+  return data.meals && data.meals[0];
+}
+
+export async function runDailyImport(env) {
+  const targetCount = 1; // само 1 за диагностика
+  let added = 0;
+  let attempts = 0;
+  const maxAttempts = 3;
+  const debugBucket = [];
+
+  while (added < targetCount && attempts < maxAttempts) {
+    attempts++;
+    const meal = await fetchRandomMeal();
+    if (!meal) continue;
+
+    const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?')
+      .bind(meal.idMeal)
+      .first();
+    if (existing) continue;
+
+    const ingredientsEn = extractIngredients(meal);
+    const dietTags = computeDietTags(ingredientsEn);
+    const translated = await translateRecipeWithAI(env, meal, ingredientsEn, debugBucket);
+
+    const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
+    const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
+    const area = AREA_MAP[meal.strArea] || meal.strArea || 'Международна';
+
+    const id = 'r' + Date.now() + Math.floor(Math.random() * 1000);
+    const date = new Date().toISOString().slice(0, 10);
+
+    await env.DB.prepare(
+      `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+      .bind(
+        id, meal.idMeal, translated.title, meal.strMeal, excerpt,
+        JSON.stringify(translated.ingredients), translated.instructions, category, area,
+        dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
+        'Готвач БГ', date, 0
+      )
+      .run();
+
+    added++;
+  }
+
+  return { added, attempts, debugBucket };
+}
