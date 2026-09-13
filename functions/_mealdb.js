@@ -25,27 +25,65 @@ const MEAT_KEYWORDS = ['chicken','beef','pork','lamb','bacon','sausage','turkey'
 const SUGAR_KEYWORDS = ['sugar','honey','syrup','chocolate','caramel','condensed milk'];
 const HIGH_CARB_KEYWORDS = ['flour','bread','pasta','rice','potato','sugar','oats','oatmeal','corn','tortilla','noodle'];
 
-async function translateText(env, text, targetLang = 'bulgarian') {
-  if (!text || !text.trim()) return text;
+async function askLLM(env, systemPrompt, userPrompt, maxTokens = 800) {
   try {
-    const result = await env.AI.run('@cf/meta/m2m100-1.2b', {
-      text: text.slice(0, 900),
-      source_lang: 'english',
-      target_lang: targetLang,
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: maxTokens,
     });
-    return result.translated_text || text;
+    return (response.response || '').trim();
   } catch (e) {
-    return text;
+    return '';
   }
 }
 
-async function translateLong(env, text) {
-  const parts = text.split(/\r?\n+/).filter(Boolean);
-  const translated = [];
-  for (const part of parts) {
-    translated.push(await translateText(env, part));
+async function translateTitle(env, title) {
+  const result = await askLLM(
+    env,
+    'Ти си кулинарен преводач. Превеждаш само заглавия на ястия от английски на естествен български, кратко и точно, без обяснения.',
+    `Преведи заглавието на това ястие на български, върни само превода, нищо друго:\n\n${title}`,
+    60
+  );
+  return result || title;
+}
+
+async function translateIngredients(env, ingredientNames) {
+  const listText = ingredientNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
+  const result = await askLLM(
+    env,
+    'Ти си опитен готвач и преводач, специализиран в кулинарна терминология между английски и български. Превеждаш списъци със съставки точно и с правилните български кулинарни термини (напр. "cornstarch" = "царевично нишесте", "soy sauce" = "соев сос", "sesame oil" = "сусамово масло", "scallions" = "пролетен лук", "five-spice powder" = "подправка петте аромата").',
+    `Преведи следния списък от съставки на български. Върни точно толкова редове, колкото са в оригинала, по един превод на ред, само превода без номерация и без допълнителен текст:\n\n${listText}`,
+    500
+  );
+
+  const lines = result.split('\n').map(l => l.replace(/^\d+[.)]\s*/, '').trim()).filter(Boolean);
+  if (lines.length === ingredientNames.length) {
+    return lines;
   }
-  return translated.join('\n\n');
+  const fallback = [];
+  for (const name of ingredientNames) {
+    const single = await askLLM(
+      env,
+      'Ти си кулинарен преводач. Превеждаш имена на хранителни съставки от английски на български, кратко и точно.',
+      `Преведи на български само тази съставка, без обяснения: ${name}`,
+      20
+    );
+    fallback.push(single || name);
+  }
+  return fallback;
+}
+
+async function translateInstructions(env, instructionsEn) {
+  const result = await askLLM(
+    env,
+    'Ти си професионален кулинарен преводач. Превеждаш рецепти от английски на естествен, гладък български, запазвайки структурата на стъпките.',
+    `Преведи следната рецепта на български, запазвайки абзаците (нов ред между отделните стъпки). Върни само превода, без обяснения:\n\n${instructionsEn}`,
+    1200
+  );
+  return result || instructionsEn;
 }
 
 function extractIngredients(meal) {
@@ -97,13 +135,13 @@ export async function runDailyImport(env) {
     const ingredientsEn = extractIngredients(meal);
     const dietTags = computeDietTags(ingredientsEn);
 
-    const titleBg = await translateText(env, meal.strMeal);
-    const instructionsBg = await translateLong(env, meal.strInstructions || '');
-    const ingredientsBg = [];
-    for (const ing of ingredientsEn) {
-      const nameBg = await translateText(env, ing.name);
-      ingredientsBg.push({ name: nameBg, measure: ing.measure });
-    }
+    const titleBg = await translateTitle(env, meal.strMeal);
+    const instructionsBg = await translateInstructions(env, meal.strInstructions || '');
+    const namesBg = await translateIngredients(env, ingredientsEn.map(i => i.name));
+    const ingredientsBg = ingredientsEn.map((ing, idx) => ({
+      name: namesBg[idx] || ing.name,
+      measure: ing.measure,
+    }));
 
     const excerpt = instructionsBg.split(/\n+/)[0].slice(0, 160);
     const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
