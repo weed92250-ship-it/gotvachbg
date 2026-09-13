@@ -43,35 +43,40 @@ async function askLLM(env, systemPrompt, userPrompt, maxTokens = 800) {
 async function translateTitle(env, title) {
   const result = await askLLM(
     env,
-    'Ти си кулинарен преводач. Превеждаш само заглавия на ястия от английски на естествен български, кратко и точно, без обяснения.',
-    `Преведи заглавието на това ястие на български, върни само превода, нищо друго:\n\n${title}`,
+    'Ти си кулинарен преводач. Превеждаш заглавия на ястия от английски на български. Ако ястието има традиционно име без директен превод (напр. име на място, диалектен термин), транслитерирай цялото название фонетично на кирилица — НЕ смесвай латиница и кирилица в един и същ отговор. Отговорът трябва да е изцяло на кирилица, без обяснения.',
+    `Преведи или транслитерирай изцяло на кирилица заглавието на това ястие. Върни само крайния резултат, нищо друго:\n\n${title}`,
     60
   );
   return result || title;
 }
 
-async function translateIngredients(env, ingredientNames) {
-  const listText = ingredientNames.map((n, i) => `${i + 1}. ${n}`).join('\n');
+async function translateIngredientPairs(env, pairs) {
+  const listText = pairs.map((p, i) => `${i + 1}. ${p.measure || '-'} | ${p.name}`).join('\n');
   const result = await askLLM(
     env,
-    'Ти си опитен готвач и преводач, специализиран в кулинарна терминология между английски и български. Превеждаш списъци със съставки точно и с правилните български кулинарни термини (напр. "cornstarch" = "царевично нишесте", "soy sauce" = "соев сос", "sesame oil" = "сусамово масло", "scallions" = "пролетен лук", "five-spice powder" = "подправка петте аромата").',
-    `Преведи следния списък от съставки на български. Върни точно толкова редове, колкото са в оригинала, по един превод на ред, само превода без номерация и без допълнителен текст:\n\n${listText}`,
-    500
+    'Ти си опитен готвач и преводач, специализиран в кулинарна терминология между английски и български. За всеки ред получаваш "количество | съставка" на английски. Преведи ПЪЛНОСТЮ и двете части на български — числата остават както са, но всички думи (включително описания като "finely sliced", "chopped", "clove") се превеждат точно, без нито една останала английска дума. Използвай правилни български кулинарни термини (напр. "cornstarch" = "царевично нишесте", "soy sauce" = "соев сос", "garlic clove" = "скilka чесън", "scallions" = "пролетен лук").',
+    `Преведи следните редове по формàта "количество | съставка", запазвайки същия формат и брой редове. Върни само преведените редове, без номерация, без обяснения:\n\n${listText}`,
+    600
   );
 
   const lines = result.split('\n').map(l => l.replace(/^\d+[.)]\s*/, '').trim()).filter(Boolean);
-  if (lines.length === ingredientNames.length) {
-    return lines;
+  if (lines.length === pairs.length) {
+    return lines.map((line, idx) => {
+      const [measure, name] = line.split('|').map(s => (s || '').trim());
+      return { measure: measure || pairs[idx].measure, name: name || pairs[idx].name };
+    });
   }
+
   const fallback = [];
-  for (const name of ingredientNames) {
+  for (const p of pairs) {
     const single = await askLLM(
       env,
-      'Ти си кулинарен преводач. Превеждаш имена на хранителни съставки от английски на български, кратко и точно.',
-      `Преведи на български само тази съставка, без обяснения: ${name}`,
-      20
+      'Ти си кулинарен преводач. Преведи "количество | съставка" изцяло на български, запазвайки числата, но превеждайки всички думи. Върни само превода в същия формат.',
+      `${p.measure || '-'} | ${p.name}`,
+      30
     );
-    fallback.push(single || name);
+    const [measure, name] = single.split('|').map(s => (s || '').trim());
+    fallback.push({ measure: measure || p.measure, name: name || p.name });
   }
   return fallback;
 }
@@ -79,7 +84,7 @@ async function translateIngredients(env, ingredientNames) {
 async function translateInstructions(env, instructionsEn) {
   const result = await askLLM(
     env,
-    'Ти си професионален кулинарен преводач. Превеждаш рецепти от английски на естествен, гладък български, запазвайки структурата на стъпките.',
+    'Ти си професионален кулинарен преводач. Превеждаш рецепти от английски на естествен, гладък български, запазвайки структурата на стъпките. Не оставяй нито една английска дума в отговора.',
     `Преведи следната рецепта на български, запазвайки абзаците (нов ред между отделните стъпки). Върни само превода, без обяснения:\n\n${instructionsEn}`,
     1200
   );
@@ -137,11 +142,7 @@ export async function runDailyImport(env) {
 
     const titleBg = await translateTitle(env, meal.strMeal);
     const instructionsBg = await translateInstructions(env, meal.strInstructions || '');
-    const namesBg = await translateIngredients(env, ingredientsEn.map(i => i.name));
-    const ingredientsBg = ingredientsEn.map((ing, idx) => ({
-      name: namesBg[idx] || ing.name,
-      measure: ing.measure,
-    }));
+    const ingredientsBg = await translateIngredientPairs(env, ingredientsEn);
 
     const excerpt = instructionsBg.split(/\n+/)[0].slice(0, 160);
     const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
