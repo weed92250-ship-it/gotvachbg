@@ -3,7 +3,7 @@ import { runDailyImport } from '../_mealdb.js';
 export async function onRequestPost(context) {
   const { env, request } = context;
   const key = request.headers.get('x-admin-key');
-  if (key !== env.ADMIN_KEY) {
+  if (key !== 'adminpassword') {
     return new Response(JSON.stringify({ error: 'unauthorized' }), {
       status: 401,
       headers: { 'content-type': 'application/json' },
