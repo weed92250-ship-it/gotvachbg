@@ -50,66 +50,54 @@ function computeDietTags(ingredients) {
   return tags;
 }
 
-async function translateRecipeWithGemini(env, meal, ingredientsEn, debugBucket) {
+async function translateRecipeWithWorkersAI(env, meal, ingredientsEn, debugBucket) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemInstruction = 'Ти си професионален кулинарен преводач. Превеждаш рецепти от английски на български език. Превеждай абсолютно всичко на чист български (заглавие, мерни единици като tsp->ч.л., tbsp->с.л., cup->чаша, g->г, съставки и инструкции). Връщай САМО валиден JSON във формат: {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}. Без обяснения, без markdown блокове.';
-
-  const userPrompt = `Преведи тази рецепта изцяло на български език:
+  const prompt = `Ти си професионален кулинарен преводач. Превеждай рецепти от английски на чист български език (заглавие, мерни единици като tsp->ч.л., tbsp->с.л., cup->чаша, g->г, съставки и инструкции).
 
 Заглавие: ${meal.strMeal}
 
 Съставки (номер. количество | име):
 ${ingredientsListText}
 
-Стъпки:
+Стъпки за приготвяне:
 ${meal.strInstructions}
 
-Върни точно този JSON формат, нищо друго:
-{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
+ВЪРНИ САМО ВАЛИДЕН JSON БЕЗ НИКАКЪВ ДРУГ ТЕКСТ ИЛИ MARKDOWN BLOCK.
+Формат:
+{
+  "title": "Преведено заглавие на български",
+  "ingredients": [
+    {"measure": "преведено количество", "name": "преведено име на съставка"}
+  ],
+  "instructions": "Преведени стъпки за приготвяне..."
+}
 Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.`;
 
   try {
-    const apiKey = env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+    if (!env.AI) throw new Error('Cloudflare Workers AI (env.AI) is not bound');
 
-    // Използваме стабилния v1 endpoint с актуалния модел gemini-2.5-flash
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: {
-          parts: [{ text: systemInstruction }]
-        },
-        contents: [{
-          parts: [{ text: userPrompt }]
-        }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      })
+    const aiResponse = await env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }]
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${errText}`);
-    }
-
-    const data = await response.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let rawText = aiResponse.response ? aiResponse.response.trim() : '';
     
-    if (!rawText) throw new Error('Empty response from Gemini');
+    // Изчистване на евентуални markdown блокове
+    if (rawText.startsWith('```')) {
+      rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+    }
 
     const parsed = JSON.parse(rawText);
     if (!parsed.title || !Array.isArray(parsed.ingredients) || !parsed.instructions) {
-      throw new Error('Invalid JSON structure from Gemini');
+      throw new Error('Invalid JSON structure from Workers AI');
     }
 
     return parsed;
   } catch (e) {
-    debugBucket.push({ stage: 'gemini_translation_error', error: String(e.message || e) });
+    debugBucket.push({ stage: 'workers_ai_translation_error', error: String(e.message || e) });
     return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
   }
 }
@@ -143,7 +131,7 @@ export async function runDailyImport(env) {
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
       
-      const translated = await translateRecipeWithGemini(env, meal, ingredientsEn, debugBucket);
+      const translated = await translateRecipeWithWorkersAI(env, meal, ingredientsEn, debugBucket);
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
