@@ -11,7 +11,6 @@ const CATEGORY_MAP = {
 const AREA_MAP = {
   'American': 'Американска', 'British': 'Британска', 'Canadian': 'Канадска',
   'Chinese': 'Китайска', 'Croatian': 'Хърватска', 'Dutch': 'Холандска',
-  'Netherlands': 'Холандска',
   'Egyptian': 'Египетска', 'French': 'Френска', 'Greek': 'Гръцка',
   'Indian': 'Индийска', 'Irish': 'Ирландска', 'Italian': 'Италианска',
   'Jamaican': 'Ямайска', 'Japanese': 'Японска', 'Kenyan': 'Кенийска',
@@ -51,39 +50,18 @@ function computeDietTags(ingredients) {
 }
 
 function extractResponseText(aiResponse) {
-  if (typeof aiResponse.response === 'string') {
-    return aiResponse.response;
-  }
-  if (
-    aiResponse.choices &&
-    aiResponse.choices[0] &&
-    aiResponse.choices[0].message &&
-    typeof aiResponse.choices[0].message.content === 'string'
-  ) {
-    return aiResponse.choices[0].message.content;
-  }
-  if (aiResponse.response && typeof aiResponse.response === 'object') {
-    try {
-      return JSON.stringify(aiResponse.response);
-    } catch (e) {
-      return '';
-    }
+  if (!aiResponse) return '';
+  if (aiResponse.response) return aiResponse.response;
+  if (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
+    return aiResponse.choices[0].message.content || '';
   }
   return '';
-}
-
-// Хваща случаи като "покrijте" или "Пanko" - латински букви вмъкнати в кирилска дума.
-// Позволява отделни латински думи/абревиатури, но не и букви, залепени за кирилица.
-function hasMixedScriptGlitch(s) {
-  if (typeof s !== 'string') return true;
-  return /[а-яА-Я][a-zA-Z]|[a-zA-Z][а-яА-Я]/.test(s);
 }
 
 function isCleanField(s) {
   if (typeof s !== 'string') return false;
   if (s.includes('|')) return false;
   if (s.trim().length === 0) return false;
-  if (hasMixedScriptGlitch(s)) return false;
   const words = s.trim().split(/\s+/);
   if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
   return true;
@@ -93,9 +71,8 @@ function validateTranslation(data, expectedCount) {
   if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
-  if (hasMixedScriptGlitch(data.instructions)) return false;
   for (const ing of data.ingredients) {
-    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
+    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|')) return false;
   }
   return true;
 }
@@ -105,7 +82,7 @@ async function translateRecipeWithAI(env, meal, ingredientsEn) {
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи, не смесваш латински и кирилски букви в една дума, и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология (напр. "sesame seeds" = "сусамово семе").';
+  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи и не добавяш собствени коментари или поздрави.';
 
   const userPrompt = `Преведи тази рецепта на български:
 
@@ -123,7 +100,7 @@ ${meal.strInstructions}
 
   let aiResponse;
   try {
-    aiResponse = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -159,21 +136,19 @@ ${meal.strInstructions}
 
 async function fetchRandomMeal() {
   const res = await fetch(`${MEALDB_BASE}/random.php`);
-  if (!res.ok) throw new Error('TheMealDB заявката се провали: ' + res.status);
   const data = await res.json();
   return data.meals && data.meals[0];
 }
 
 export async function runDailyImport(env) {
-  const targetCount = 3 + Math.floor(Math.random() * 3);
-  let added = 0;
-  let attempts = 0;
-  const maxAttempts = targetCount * 6;
-  const errors = [];
+  try {
+    const targetCount = 3 + Math.floor(Math.random() * 3);
+    let added = 0;
+    let attempts = 0;
+    const maxAttempts = targetCount * 5;
 
-  while (added < targetCount && attempts < maxAttempts) {
-    attempts++;
-    try {
+    while (added < targetCount && attempts < maxAttempts) {
+      attempts++;
       const meal = await fetchRandomMeal();
       if (!meal) continue;
 
@@ -206,10 +181,15 @@ export async function runDailyImport(env) {
         .run();
 
       added++;
-    } catch (err) {
-      errors.push(String(err && err.message ? err.message : err));
     }
-  }
 
-  return { added, attempts, errors };
+    return { added, attempts };
+  } catch (e) {
+    return {
+      added: 0,
+      attempts: 0,
+      error: String(e && e.message ? e.message : e),
+      stack: String(e && e.stack ? e.stack : ''),
+    };
+  }
 }
