@@ -27,7 +27,7 @@ ${meal.strInstructions}
   try {
     if (!env.AI) throw new Error('Cloudflare Workers AI (env.AI) is not bound');
 
-    const aiResponse = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+    const aiResponse = await env.AI.run('@cf/zai-org/glm-4.7-flash', {
       messages: [{ role: 'user', content: prompt }]
     });
 
