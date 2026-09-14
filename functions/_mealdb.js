@@ -95,7 +95,7 @@ async function translateRecipeWithAI(env, meal, ingredientsEn) {
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи и не добавяш собствени коментари или поздрави.';
+  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология (напр. "sesame seeds" = "сусамово семе", НЕ "попкорна семка").';
 
   const userPrompt = `Преведи тази рецепта на български:
 
@@ -113,7 +113,7 @@ ${meal.strInstructions}
 
   let aiResponse;
   try {
-    aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
+    aiResponse = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
