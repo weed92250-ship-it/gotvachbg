@@ -87,23 +87,99 @@ function isCleanField(s) {
   return true;
 }
 
-function validateTranslation(data, expectedCount) {
+// Мерни думи, за които AI-то често халюцинира безсмислени преводи
+// (напр. "зрънце", "хапка", "капка" вместо истинска мерна единица).
+// Ако измереното поле е ТОЧНО една от тези думи (без число/уточнение), приемаме го за съмнително.
+const SUSPICIOUS_MEASURE_WORDS = new Set([
+  'зрънце', 'зрънца', 'хапка', 'хапки', 'капка', 'капки', 'частица', 'частици', 'кичур', 'кичури',
+]);
+
+function isSuspiciousMeasure(measure) {
+  if (typeof measure !== 'string') return true;
+  const trimmed = measure.trim().toLowerCase();
+  if (trimmed.length === 0) return false; // празно измерение е ОК (напр. "сол на вкус" отива в name)
+  const words = trimmed.split(/\s+/);
+  // Само еднословни, безсмислени "мерки" без число пред тях будят съмнение.
+  if (words.length === 1 && SUSPICIOUS_MEASURE_WORDS.has(words[0])) return true;
+  return false;
+}
+
+function countByKey(items, keyFn) {
+  const counts = new Map();
+  for (const item of items) {
+    const key = keyFn(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}
+
+function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
+  // Установява дали AI-то е "измислило" еднакви преводи за различни съставки
+  // (напр. две различни подправки, преведени погрешно с една и съща дума).
+  const originalCounts = countByKey(originalIngredients, i => i.name.trim().toLowerCase());
+  const translatedCounts = countByKey(translatedIngredients, i => (i.name || '').trim().toLowerCase());
+
+  const maxOriginalDuplicate = Math.max(0, ...Array.from(originalCounts.values()));
+  const maxTranslatedDuplicate = Math.max(0, ...Array.from(translatedCounts.values()));
+
+  // Ако в превода има повече повторения на едно и също име, отколкото в оригинала,
+  // почти сигурно е грешка в превода, а не съвпадение.
+  return maxTranslatedDuplicate > Math.max(1, maxOriginalDuplicate);
+}
+
+function validateTranslation(data, ingredientsEn) {
+  const expectedCount = ingredientsEn.length;
   if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
   if (hasMixedScriptGlitch(data.instructions)) return false;
+
   for (const ing of data.ingredients) {
     if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
+    if (isSuspiciousMeasure(ing.measure)) return false;
   }
+
+  if (hasExcessDuplicateNames(ingredientsEn, data.ingredients)) return false;
+
   return true;
 }
 
-async function translateRecipeWithAI(env, meal, ingredientsEn) {
+const MEASURE_GLOSSARY = `Речник на мерни единици (превеждай със СЪЩИТЕ стандартни думи, никога не измисляй нови):
+- teaspoon/tsp -> чаена лъжичка
+- tablespoon/tbsp -> супена лъжица
+- cup -> чаша
+- clove (garlic) -> скилидка
+- slice -> резен
+- pinch -> щипка
+- can/tin -> консервена кутия
+- ounce/oz -> унция
+- pound/lb -> паунд
+- gram/g -> грам
+- pack/packet -> пакет
+- bunch -> връзка
+- handful -> шепа
+- to taste -> на вкус
+- breadcrumbs -> галета / панировъчни трохи
+- large/small/medium (за яйца, глави лук и т.н.) -> голям(а)/малък(ка)/среден(на)
+НИКОГА не превеждай мерна единица с думи като "зрънце", "хапка", "капка", "частица" — те не са реални мерни единици в българската кухня.`;
+
+async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи, не смесваш латински и кирилски букви в една дума, и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология.';
+  const systemPrompt = `Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи, не смесваш латински и кирилски букви в една дума, и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология.
+
+${MEASURE_GLOSSARY}
+
+Правила за съставките:
+- Превеждай всяка съставка отделно и точно според оригиналното ѝ значение — никога не давай на две различни съставки един и същ превод, освен ако наистина означават едно и също нещо.
+- Запази реда и броя на съставките идентични с оригинала.
+- Полето "measure" трябва да съдържа число (или "на вкус"/празен низ) плюс мерна единица от речника по-горе — никога само измислена дума.`;
+
+  const feedbackBlock = attemptFeedback
+    ? `\n\nВАЖНО: Предишният ти опит беше отхвърлен, защото съдържаше грешка от този вид: ${attemptFeedback}. Моля, поправи това и бъди по-прецизен, особено с мерните единици и уникалността на всяка съставка.`
+    : '';
 
   const userPrompt = `Преведи тази рецепта на български:
 
@@ -117,7 +193,7 @@ ${meal.strInstructions}
 
 Върни точно този JSON формат, нищо друго:
 {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
-Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.`;
+Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.${feedbackBlock}`;
 
   let aiResponse;
   try {
@@ -129,7 +205,7 @@ ${meal.strInstructions}
       max_tokens: 6000,
     });
   } catch (e) {
-    return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+    return null;
   }
 
   let rawText = extractResponseText(aiResponse).trim();
@@ -145,13 +221,31 @@ ${meal.strInstructions}
 
   try {
     const data = JSON.parse(rawText);
-    if (validateTranslation(data, ingredientsEn.length)) {
+    if (validateTranslation(data, ingredientsEn)) {
       return data;
     }
   } catch (e) {
-    // fallback по-долу
+    // невалиден JSON, ще опитаме пак или ще паднем към fallback
   }
 
+  return null;
+}
+
+async function translateRecipeWithRetry(env, meal, ingredientsEn) {
+  // Първи опит
+  let data = await translateRecipeWithAI(env, meal, ingredientsEn);
+  if (data) return data;
+
+  // Втори опит с обратна връзка за често срещаните проблеми
+  data = await translateRecipeWithAI(
+    env,
+    meal,
+    ingredientsEn,
+    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки'
+  );
+  if (data) return data;
+
+  // И двата опита се провалиха — връщаме оригинала на английски, за да не публикуваме брак.
   return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
 }
 
@@ -182,7 +276,7 @@ export async function runDailyImport(env) {
 
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
-      const translated = await translateRecipeWithAI(env, meal, ingredientsEn);
+      const translated = await translateRecipeWithRetry(env, meal, ingredientsEn);
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
