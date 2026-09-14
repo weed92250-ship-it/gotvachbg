@@ -1,11 +1,10 @@
 name = "gotvachbg"
-pages_build_output_dir = "public"
-compatibility_date = "2026-01-01"
+compatibility_date = "2024-03-20"
+
+[ai]
+binding = "AI"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "gotvachbg-db"
-database_id = "0c08e995-24dc-4ea7-8bfe-f0cd22a8e875"
-
-[ai]
-binding = "AI"
+database_id = "YOUR_DATABASE_ID"
