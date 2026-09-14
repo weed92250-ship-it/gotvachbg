@@ -52,10 +52,8 @@ function computeDietTags(ingredients) {
 
 async function translateRecipeWithWorkersAI(env, meal, ingredientsEn, debugBucket) {
   try {
-    // Безопасна проверка дали env.AI и методът run съществуват преди извикване
     if (!env.AI || typeof env.AI.run !== 'function') {
-      debugBucket.push({ stage: 'workers_ai_notice', error: 'AI binding not configured, using original text fallback.' });
-      return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+      throw new Error('AI binding not available');
     }
 
     const ingredientsListText = ingredientsEn
