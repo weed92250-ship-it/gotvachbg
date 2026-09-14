@@ -11,6 +11,7 @@ const CATEGORY_MAP = {
 const AREA_MAP = {
   'American': 'Американска', 'British': 'Британска', 'Canadian': 'Канадска',
   'Chinese': 'Китайска', 'Croatian': 'Хърватска', 'Dutch': 'Холандска',
+  'Netherlands': 'Холандска',
   'Egyptian': 'Египетска', 'French': 'Френска', 'Greek': 'Гръцка',
   'Indian': 'Индийска', 'Irish': 'Ирландска', 'Italian': 'Италианска',
   'Jamaican': 'Ямайска', 'Japanese': 'Японска', 'Kenyan': 'Кенийска',
@@ -71,10 +72,18 @@ function extractResponseText(aiResponse) {
   return '';
 }
 
+// Хваща случаи като "покrijте" или "Пanko" - латински букви вмъкнати в кирилска дума.
+// Позволява отделни латински думи/абревиатури, но не и букви, залепени за кирилица.
+function hasMixedScriptGlitch(s) {
+  if (typeof s !== 'string') return true;
+  return /[а-яА-Я][a-zA-Z]|[a-zA-Z][а-яА-Я]/.test(s);
+}
+
 function isCleanField(s) {
   if (typeof s !== 'string') return false;
   if (s.includes('|')) return false;
   if (s.trim().length === 0) return false;
+  if (hasMixedScriptGlitch(s)) return false;
   const words = s.trim().split(/\s+/);
   if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
   return true;
@@ -84,8 +93,9 @@ function validateTranslation(data, expectedCount) {
   if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
+  if (hasMixedScriptGlitch(data.instructions)) return false;
   for (const ing of data.ingredients) {
-    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|')) return false;
+    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
   }
   return true;
 }
@@ -95,7 +105,7 @@ async function translateRecipeWithAI(env, meal, ingredientsEn) {
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология (напр. "sesame seeds" = "сусамово семе", НЕ "попкорна семка").';
+  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи, не смесваш латински и кирилски букви в една дума, и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология (напр. "sesame seeds" = "сусамово семе").';
 
   const userPrompt = `Преведи тази рецепта на български:
 
