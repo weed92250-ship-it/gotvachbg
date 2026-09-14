@@ -50,9 +50,23 @@ function computeDietTags(ingredients) {
 }
 
 function extractResponseText(aiResponse) {
-  if (aiResponse.response) return aiResponse.response;
-  if (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
-    return aiResponse.choices[0].message.content || '';
+  if (typeof aiResponse.response === 'string') {
+    return aiResponse.response;
+  }
+  if (
+    aiResponse.choices &&
+    aiResponse.choices[0] &&
+    aiResponse.choices[0].message &&
+    typeof aiResponse.choices[0].message.content === 'string'
+  ) {
+    return aiResponse.choices[0].message.content;
+  }
+  if (aiResponse.response && typeof aiResponse.response === 'object') {
+    try {
+      return JSON.stringify(aiResponse.response);
+    } catch (e) {
+      return '';
+    }
   }
   return '';
 }
