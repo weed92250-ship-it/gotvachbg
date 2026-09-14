@@ -192,4 +192,22 @@ export async function runDailyImport(env) {
       const date = new Date().toISOString().slice(0, 10);
 
       await env.DB.prepare(
-        `INSERT INTO
+        `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          id, meal.idMeal, translated.title, meal.strMeal, excerpt,
+          JSON.stringify(translated.ingredients), translated.instructions, category, area,
+          dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
+          'Готвач БГ', date, 0
+        )
+        .run();
+
+      added++;
+    } catch (err) {
+      errors.push(String(err && err.message ? err.message : err));
+    }
+  }
+
+  return { added, attempts, errors };
+}
