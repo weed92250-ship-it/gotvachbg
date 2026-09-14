@@ -61,7 +61,6 @@ function isCleanField(s) {
   if (typeof s !== 'string') return false;
   if (s.includes('|')) return false;
   if (s.trim().length === 0) return false;
-  // засича случаи на буквално удвоена дума в края, напр. "Зеле Зеле"
   const words = s.trim().split(/\s+/);
   if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
   return true;
@@ -136,6 +135,7 @@ ${meal.strInstructions}
 
 async function fetchRandomMeal() {
   const res = await fetch(`${MEALDB_BASE}/random.php`);
+  if (!res.ok) throw new Error('TheMealDB заявката се провали: ' + res.status);
   const data = await res.json();
   return data.meals && data.meals[0];
 }
@@ -144,43 +144,48 @@ export async function runDailyImport(env) {
   const targetCount = 3 + Math.floor(Math.random() * 3);
   let added = 0;
   let attempts = 0;
-  const maxAttempts = targetCount * 5;
+  const maxAttempts = targetCount * 6;
+  const errors = [];
 
   while (added < targetCount && attempts < maxAttempts) {
     attempts++;
-    const meal = await fetchRandomMeal();
-    if (!meal) continue;
+    try {
+      const meal = await fetchRandomMeal();
+      if (!meal) continue;
 
-    const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?')
-      .bind(meal.idMeal)
-      .first();
-    if (existing) continue;
+      const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?')
+        .bind(meal.idMeal)
+        .first();
+      if (existing) continue;
 
-    const ingredientsEn = extractIngredients(meal);
-    const dietTags = computeDietTags(ingredientsEn);
-    const translated = await translateRecipeWithAI(env, meal, ingredientsEn);
+      const ingredientsEn = extractIngredients(meal);
+      const dietTags = computeDietTags(ingredientsEn);
+      const translated = await translateRecipeWithAI(env, meal, ingredientsEn);
 
-    const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
-    const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
-    const area = AREA_MAP[meal.strArea] || meal.strArea || 'Международна';
+      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
+      const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
+      const area = AREA_MAP[meal.strArea] || meal.strArea || 'Международна';
 
-    const id = 'r' + Date.now() + Math.floor(Math.random() * 1000);
-    const date = new Date().toISOString().slice(0, 10);
+      const id = 'r' + Date.now() + Math.floor(Math.random() * 1000);
+      const date = new Date().toISOString().slice(0, 10);
 
-    await env.DB.prepare(
-      `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(
-        id, meal.idMeal, translated.title, meal.strMeal, excerpt,
-        JSON.stringify(translated.ingredients), translated.instructions, category, area,
-        dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
-        'Готвач БГ', date, 0
+      await env.DB.prepare(
+        `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run();
+        .bind(
+          id, meal.idMeal, translated.title, meal.strMeal, excerpt,
+          JSON.stringify(translated.ingredients), translated.instructions, category, area,
+          dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
+          'Готвач БГ', date, 0
+        )
+        .run();
 
-    added++;
+      added++;
+    } catch (err) {
+      errors.push(String(err && err.message ? err.message : err));
+    }
   }
 
-  return { added, attempts };
+  return { added, attempts, errors };
 }
