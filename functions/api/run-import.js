@@ -6,6 +6,10 @@ export async function onRequestPost({ request, env }) {
   if (!key || key !== env.ADMIN_PASSWORD) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
-  const result = await runDailyImport(env);
-  return jsonResponse(result);
+  try {
+    const result = await runDailyImport(env);
+    return jsonResponse(result);
+  } catch (err) {
+    return jsonResponse({ error: 'Import failed', details: String(err && err.message ? err.message : err) }, 500);
+  }
 }
