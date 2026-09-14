@@ -75,13 +75,10 @@ ${meal.strInstructions}
     const apiKey = env.GEMINI_API_KEY;
     if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
-    // Използваме стабилния v1beta endpoint с x-goog-api-key хедър за максимална съвместимост
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`, {
+    // Използваме стабилния v1 endpoint с актуалния модел gemini-2.5-flash
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: {
           parts: [{ text: systemInstruction }]
