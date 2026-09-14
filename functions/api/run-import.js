@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
   try {
-    const result = await runDailyImport(env);
+    const result = typeof runDailyImport === 'function' ? await runDailyImport(env) : { error: 'Import function missing' };
     return jsonResponse(result);
   } catch (err) {
     return jsonResponse({ error: 'Import failed', details: String(err && err.message ? err.message : err) }, 500);
