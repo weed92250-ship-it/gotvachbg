@@ -50,44 +50,109 @@ function computeDietTags(ingredients) {
   return tags;
 }
 
-async function translateRecipeWithWorkersAI(env, meal, ingredientsEn, debugBucket) {
-  try {
-    if (!env.AI || typeof env.AI.run !== 'function') {
-      throw new Error('AI binding not available');
+function extractResponseText(aiResponse) {
+  if (typeof aiResponse.response === 'string') {
+    return aiResponse.response;
+  }
+  if (
+    aiResponse.choices &&
+    aiResponse.choices[0] &&
+    aiResponse.choices[0].message &&
+    typeof aiResponse.choices[0].message.content === 'string'
+  ) {
+    return aiResponse.choices[0].message.content;
+  }
+  if (aiResponse.response && typeof aiResponse.response === 'object') {
+    try {
+      return JSON.stringify(aiResponse.response);
+    } catch (e) {
+      return '';
     }
+  }
+  return '';
+}
 
-    const ingredientsListText = ingredientsEn
-      .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
-      .join('\n');
+function hasMixedScriptGlitch(s) {
+  if (typeof s !== 'string') return true;
+  return /[а-яА-Я][a-zA-Z]|[a-zA-Z][а-яА-Я]/.test(s);
+}
 
-    const prompt = `Ти си професионален кулинарен преводач. Превеждай рецепти от английски на чист български език. Връщай САМО валиден JSON във формат: {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}. Без обяснения и без markdown блокове.
+function isCleanField(s) {
+  if (typeof s !== 'string') return false;
+  if (s.includes('|')) return false;
+  if (s.trim().length === 0) return false;
+  if (hasMixedScriptGlitch(s)) return false;
+  const words = s.trim().split(/\s+/);
+  if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
+  return true;
+}
+
+function validateTranslation(data, expectedCount) {
+  if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
+  if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
+  if (!isCleanField(data.title)) return false;
+  if (hasMixedScriptGlitch(data.instructions)) return false;
+  for (const ing of data.ingredients) {
+    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
+  }
+  return true;
+}
+
+async function translateRecipeWithAI(env, meal, ingredientsEn) {
+  const ingredientsListText = ingredientsEn
+    .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
+    .join('\n');
+
+  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи, не смесваш латински и кирилски букви в една дума, и не добавяш собствени коментари или поздрави. Използвай точна българска кулинарна терминология.';
+
+  const userPrompt = `Преведи тази рецепта на български:
 
 Заглавие: ${meal.strMeal}
-Съставки:
+
+Съставки (номер. количество | име):
 ${ingredientsListText}
-Инструкции:
+
+Стъпки:
 ${meal.strInstructions}
+
+Върни точно този JSON формат, нищо друго:
+{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
 Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.`;
 
-    const aiResponse = await env.AI.run('@cf/meta/llama-3.2-3b-instruct', {
-      messages: [{ role: 'user', content: prompt }]
+  let aiResponse;
+  try {
+    aiResponse = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 6000,
     });
-
-    let rawText = aiResponse.response ? aiResponse.response.trim() : '';
-    if (rawText.startsWith('```')) {
-      rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
-    }
-
-    const parsed = JSON.parse(rawText);
-    if (!parsed.title || !Array.isArray(parsed.ingredients) || !parsed.instructions) {
-      throw new Error('Invalid JSON structure');
-    }
-
-    return parsed;
   } catch (e) {
-    debugBucket.push({ stage: 'workers_ai_translation_error', error: String(e.message || e) });
     return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
   }
+
+  let rawText = extractResponseText(aiResponse).trim();
+  if (rawText.startsWith('```')) {
+    rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+  }
+
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    rawText = rawText.slice(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    const data = JSON.parse(rawText);
+    if (validateTranslation(data, ingredientsEn.length)) {
+      return data;
+    }
+  } catch (e) {
+    // fallback по-долу
+  }
+
+  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
 }
 
 async function fetchRandomMeal() {
@@ -98,12 +163,11 @@ async function fetchRandomMeal() {
 }
 
 export async function runDailyImport(env) {
-  const targetCount = 2;
+  const targetCount = 3 + Math.floor(Math.random() * 3);
   let added = 0;
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = targetCount * 6;
   const errors = [];
-  const debugBucket = [];
 
   while (added < targetCount && attempts < maxAttempts) {
     attempts++;
@@ -118,8 +182,7 @@ export async function runDailyImport(env) {
 
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
-      
-      const translated = await translateRecipeWithWorkersAI(env, meal, ingredientsEn, debugBucket);
+      const translated = await translateRecipeWithAI(env, meal, ingredientsEn);
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
@@ -129,22 +192,4 @@ export async function runDailyImport(env) {
       const date = new Date().toISOString().slice(0, 10);
 
       await env.DB.prepare(
-        `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-        .bind(
-          id, meal.idMeal, translated.title, meal.strMeal, excerpt,
-          JSON.stringify(translated.ingredients), translated.instructions, category, area,
-          dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
-          'Готвач БГ', date, 0
-        )
-        .run();
-
-      added++;
-    } catch (err) {
-      errors.push(String(err && err.message ? err.message : err));
-    }
-  }
-
-  return { added, attempts, errors, debugBucket };
-}
+        `INSERT INTO
