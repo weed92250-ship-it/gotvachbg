@@ -50,62 +50,12 @@ function computeDietTags(ingredients) {
   return tags;
 }
 
-function extractResponseText(aiResponse) {
-  if (typeof aiResponse.response === 'string') {
-    return aiResponse.response;
-  }
-  if (
-    aiResponse.choices &&
-    aiResponse.choices[0] &&
-    aiResponse.choices[0].message &&
-    typeof aiResponse.choices[0].message.content === 'string'
-  ) {
-    return aiResponse.choices[0].message.content;
-  }
-  if (aiResponse.response && typeof aiResponse.response === 'object') {
-    try {
-      return JSON.stringify(aiResponse.response);
-    } catch (e) {
-      return '';
-    }
-  }
-  return '';
-}
-
-function hasMixedScriptGlitch(s) {
-  if (typeof s !== 'string') return true;
-  return /[а-яА-Я][a-zA-Z]|[a-zA-Z][а-яА-Я]/.test(s);
-}
-
-function isCleanField(s) {
-  if (typeof s !== 'string') return false;
-  if (s.includes('|')) return false;
-  if (s.trim().length === 0) return false;
-  if (hasMixedScriptGlitch(s)) return false;
-  const words = s.trim().split(/\s+/);
-  if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
-  return true;
-}
-
-function validateTranslation(data, expectedCount) {
-  if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return { ok: false, reason: 'missing_fields' };
-  if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return { ok: false, reason: `ingredients_length_${data.ingredients ? data.ingredients.length : 'none'}_expected_${expectedCount}` };
-  if (!isCleanField(data.title)) return { ok: false, reason: 'title_not_clean: ' + data.title };
-  if (hasMixedScriptGlitch(data.instructions)) return { ok: false, reason: 'instructions_glitch' };
-  for (const ing of data.ingredients) {
-    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) {
-      return { ok: false, reason: 'ingredient_not_clean: ' + JSON.stringify(ing) };
-    }
-  }
-  return { ok: true };
-}
-
-async function translateRecipeWithAI(env, meal, ingredientsEn, debugBucket) {
+async function translateRecipeWithGemini(env, meal, ingredientsEn, debugBucket) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const systemPrompt = 'Ти си професионален кулинарен преводач. ТВОЯТА ЗАДАЧА Е ДА ПРЕВЕДЕШ НА БЪЛГАРСКИ ЕЗИК заглавието, всички съставки (имената и мерните единици, напр. tsp->ч.л., tbsp->с.л., cup->чаша, g->г и т.н.) и инструкциите за приготвяне. Не връщай английски текст. Връщай САМО валиден JSON във формат: {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}. Без обяснения, без markdown блокове (без ```json), без коментари.';
+  const systemInstruction = 'Ти си професионален кулинарен преводач. Превеждаш рецепти от английски на български език. Превеждай абсолютно всичко на чист български (заглавие, мерни единици като tsp->ч.л., tbsp->с.л., cup->чаша, g->г, съставки и инструкции). Връщай САМО валиден JSON във формат: {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}. Без обяснения, без markdown блокове.';
 
   const userPrompt = `Преведи тази рецепта изцяло на български език:
 
@@ -121,44 +71,46 @@ ${meal.strInstructions}
 {"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
 Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.`;
 
-  let aiResponse;
   try {
-    aiResponse = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 3000,
+    const apiKey = env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [{ text: systemInstruction }]
+        },
+        contents: [{
+          parts: [{ text: userPrompt }]
+        }],
+        generationConfig: {
+          response_mime_type: "application/json"
+        }
+      })
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gemini API error: ${response.status} - ${errText}`);
+    }
+
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!rawText) throw new Error('Empty response from Gemini');
+
+    const parsed = JSON.parse(rawText);
+    if (!parsed.title || !Array.isArray(parsed.ingredients) || !parsed.instructions) {
+      throw new Error('Invalid JSON structure from Gemini');
+    }
+
+    return parsed;
   } catch (e) {
-    debugBucket.push({ stage: 'ai_call_error', error: String(e && e.message ? e.message : e) });
+    debugBucket.push({ stage: 'gemini_translation_error', error: String(e.message || e) });
     return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
   }
-
-  let rawText = extractResponseText(aiResponse).trim();
-  const rawTextOriginal = rawText;
-  if (rawText.startsWith('```')) {
-    rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
-  }
-
-  const firstBrace = rawText.indexOf('{');
-  const lastBrace = rawText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    rawText = rawText.slice(firstBrace, lastBrace + 1);
-  }
-
-  try {
-    const data = JSON.parse(rawText);
-    const validation = validateTranslation(data, ingredientsEn.length);
-    if (validation.ok) {
-      return data;
-    }
-    debugBucket.push({ stage: 'validation_failed', reason: validation.reason, rawTextSnippet: rawTextOriginal.slice(0, 800) });
-  } catch (e) {
-    debugBucket.push({ stage: 'json_parse_error', error: String(e && e.message ? e.message : e), rawTextSnippet: rawTextOriginal.slice(0, 800) });
-  }
-
-  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
 }
 
 async function fetchRandomMeal() {
@@ -189,7 +141,8 @@ export async function runDailyImport(env) {
 
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
-      const translated = await translateRecipeWithAI(env, meal, ingredientsEn, debugBucket);
+      
+      const translated = await translateRecipeWithGemini(env, meal, ingredientsEn, debugBucket);
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
