@@ -49,7 +49,15 @@ function computeDietTags(ingredients) {
   return tags;
 }
 
-async function translateRecipeWithAI(env, meal, ingredientsEn, debugBucket) {
+function extractResponseText(aiResponse) {
+  if (aiResponse.response) return aiResponse.response;
+  if (aiResponse.choices && aiResponse.choices[0] && aiResponse.choices[0].message) {
+    return aiResponse.choices[0].message.content || '';
+  }
+  return '';
+}
+
+async function translateRecipeWithAI(env, meal, ingredientsEn) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
@@ -75,17 +83,15 @@ ${meal.strInstructions}
   try {
     aiResponse = await env.AI.run('@cf/zai-org/glm-4.7-flash', {
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 2000,
+      max_tokens: 3000,
       reasoning_effort: 'low',
       chat_template_kwargs: { enable_thinking: false },
     });
   } catch (e) {
-    debugBucket.push({ stage: 'ai_call_error', error: String(e && e.message ? e.message : e) });
     return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
   }
 
-  let rawText = (aiResponse.response || '').trim();
-  debugBucket.push({ stage: 'raw_ai_response', rawText: rawText.slice(0, 1500), fullResponseObject: JSON.stringify(aiResponse).slice(0, 500) });
+  let rawText = extractResponseText(aiResponse).trim();
 
   if (rawText.startsWith('```')) {
     rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
@@ -94,12 +100,10 @@ ${meal.strInstructions}
   try {
     const data = JSON.parse(rawText);
     if (data.title && data.instructions && Array.isArray(data.ingredients) && data.ingredients.length === ingredientsEn.length) {
-      debugBucket.push({ stage: 'parse_success' });
       return data;
     }
-    debugBucket.push({ stage: 'parse_shape_mismatch', gotIngredientsLength: (data.ingredients || []).length, expectedLength: ingredientsEn.length });
   } catch (e) {
-    debugBucket.push({ stage: 'json_parse_error', error: String(e && e.message ? e.message : e) });
+    // fallback по-долу
   }
 
   return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
@@ -112,11 +116,10 @@ async function fetchRandomMeal() {
 }
 
 export async function runDailyImport(env) {
-  const targetCount = 1; // само 1 за диагностика
+  const targetCount = 3 + Math.floor(Math.random() * 3);
   let added = 0;
   let attempts = 0;
-  const maxAttempts = 3;
-  const debugBucket = [];
+  const maxAttempts = targetCount * 5;
 
   while (added < targetCount && attempts < maxAttempts) {
     attempts++;
@@ -130,7 +133,7 @@ export async function runDailyImport(env) {
 
     const ingredientsEn = extractIngredients(meal);
     const dietTags = computeDietTags(ingredientsEn);
-    const translated = await translateRecipeWithAI(env, meal, ingredientsEn, debugBucket);
+    const translated = await translateRecipeWithAI(env, meal, ingredientsEn);
 
     const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
     const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
@@ -143,16 +146,3 @@ export async function runDailyImport(env) {
       `INSERT INTO recipes (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(
-        id, meal.idMeal, translated.title, meal.strMeal, excerpt,
-        JSON.stringify(translated.ingredients), translated.instructions, category, area,
-        dietTags.join(','), meal.strMealThumb || null, meal.strYoutube || null,
-        'Готвач БГ', date, 0
-      )
-      .run();
-
-    added++;
-  }
-
-  return { added, attempts, debugBucket };
-}
