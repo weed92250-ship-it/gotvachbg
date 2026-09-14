@@ -57,49 +57,74 @@ function extractResponseText(aiResponse) {
   return '';
 }
 
+function isCleanField(s) {
+  if (typeof s !== 'string') return false;
+  if (s.includes('|')) return false;
+  if (s.trim().length === 0) return false;
+  // засича случаи на буквално удвоена дума в края, напр. "Зеле Зеле"
+  const words = s.trim().split(/\s+/);
+  if (words.length >= 2 && words[words.length - 1] === words[words.length - 2]) return false;
+  return true;
+}
+
+function validateTranslation(data, expectedCount) {
+  if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
+  if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
+  if (!isCleanField(data.title)) return false;
+  for (const ing of data.ingredients) {
+    if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|')) return false;
+  }
+  return true;
+}
+
 async function translateRecipeWithAI(env, meal, ingredientsEn) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
     .join('\n');
 
-  const prompt = `Ти си кулинарен преводач и готвач. Преведи следната рецепта от английски на естествен български, използвайки правилни кулинарни термини.
+  const systemPrompt = 'Ти си точен кулинарен преводач. Превеждаш рецепти от английски на български. Връщаш САМО валиден JSON, без markdown, без обяснения, без допълнителни изречения извън заявените полета. Никога не удвояваш думи и не добавяш собствени коментари или поздрави.';
+
+  const userPrompt = `Преведи тази рецепта на български:
 
 Заглавие: ${meal.strMeal}
 
-Съставки (формат "количество | име"):
+Съставки (номер. количество | име):
 ${ingredientsListText}
 
-Начин на приготвяне:
+Стъпки:
 ${meal.strInstructions}
 
-ВЪРНИ САМО ВАЛИДЕН JSON БЕЗ НИКАКЪВ ДРУГ ТЕКСТ, СИМВОЛИ ИЛИ MARKDOWN CODEBLOCKS. Формат:
-{
-  "title": "преведеното заглавие на български, изцяло на кирилица",
-  "ingredients": [{"measure": "преведено количество", "name": "преведена съставка"}, ...същия брой елементи, същия ред],
-  "instructions": "преведените стъпки на български, с нов ред между отделните стъпки"
-}`;
+Върни точно този JSON формат, нищо друго:
+{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
+Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.`;
 
   let aiResponse;
   try {
-    aiResponse = await env.AI.run('@cf/zai-org/glm-4.7-flash', {
-      messages: [{ role: 'user', content: prompt }],
+    aiResponse = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
       max_tokens: 3000,
-      reasoning_effort: 'low',
-      chat_template_kwargs: { enable_thinking: false },
     });
   } catch (e) {
     return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
   }
 
   let rawText = extractResponseText(aiResponse).trim();
-
   if (rawText.startsWith('```')) {
     rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
   }
 
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    rawText = rawText.slice(firstBrace, lastBrace + 1);
+  }
+
   try {
     const data = JSON.parse(rawText);
-    if (data.title && data.instructions && Array.isArray(data.ingredients) && data.ingredients.length === ingredientsEn.length) {
+    if (validateTranslation(data, ingredientsEn.length)) {
       return data;
     }
   } catch (e) {
