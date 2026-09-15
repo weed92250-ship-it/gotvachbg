@@ -257,6 +257,62 @@ async function translateRecipeWithRetry(env, meal, ingredientsEn) {
   return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
 }
 
+// Намира вече публикувани рецепти, при които преводът е паднал (заглавието е
+// идентично с оригиналното английско заглавие, т.е. запазен е fallback-ът),
+// и опитва да ги преведе наново с подобрената логика — без да губи
+// снимка/youtube линк/дата на публикуване.
+export async function retranslateFailedRecipes(env, limit = 20) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, title, title_en, ingredients, instructions FROM recipes WHERE title = title_en LIMIT ?'
+  )
+    .bind(limit)
+    .all();
+
+  let fixed = 0;
+  let stillFailing = 0;
+  const errors = [];
+
+  for (const row of results || []) {
+    try {
+      let ingredientsEn;
+      try {
+        ingredientsEn = JSON.parse(row.ingredients || '[]');
+      } catch (e) {
+        ingredientsEn = [];
+      }
+      if (!Array.isArray(ingredientsEn) || ingredientsEn.length === 0) {
+        errors.push(`${row.id}: липсват съставки за повторен превод`);
+        continue;
+      }
+
+      const pseudoMeal = { strMeal: row.title_en, strInstructions: row.instructions };
+      const translated = await translateRecipeWithRetry(env, pseudoMeal, ingredientsEn);
+
+      // Ако translated.title все още съвпада с оригинала, значи и двата опита са паднали пак.
+      if (translated.title === row.title_en) {
+        stillFailing++;
+        continue;
+      }
+
+      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
+      await env.DB.prepare(
+        'UPDATE recipes SET title = ?, excerpt = ?, ingredients = ?, instructions = ? WHERE id = ?'
+      )
+        .bind(
+          translated.title, excerpt, JSON.stringify(translated.ingredients),
+          translated.instructions, row.id
+        )
+        .run();
+
+      fixed++;
+    } catch (err) {
+      errors.push(`${row.id}: ${String(err && err.message ? err.message : err)}`);
+    }
+  }
+
+  return { checked: (results || []).length, fixed, stillFailing, errors };
+}
+
 async function fetchRandomMeal() {
   const res = await fetch(`${MEALDB_BASE}/random.php`);
   if (!res.ok) throw new Error('TheMealDB заявката се провали: ' + res.status);
