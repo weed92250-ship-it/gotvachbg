@@ -119,12 +119,25 @@ function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
   return maxTranslatedDuplicate > Math.max(1, maxOriginalDuplicate);
 }
 
+// Известни грешни/безсмислени преводи на готварски глаголи, които вече сме засичали
+// в реални рецепти (напр. "търбуха" вместо "къкри" за "simmer"). Списъкът расте с времето.
+const BAD_INSTRUCTION_WORDS = [
+  'търбух', 'търбуха', 'търбухат', // грешен превод на "simmer"
+];
+
+function hasBadInstructionWords(s) {
+  if (typeof s !== 'string') return false;
+  const lower = s.toLowerCase();
+  return BAD_INSTRUCTION_WORDS.some(w => lower.includes(w));
+}
+
 function validateTranslation(data, ingredientsEn) {
   const expectedCount = ingredientsEn.length;
   if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
   if (hasMixedScriptGlitch(data.instructions)) return false;
+  if (hasBadInstructionWords(data.instructions)) return false;
 
   for (const ing of data.ingredients) {
     if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
@@ -168,6 +181,21 @@ const INGREDIENT_GLOSSARY = `Речник на съставки, които ле
 - caster sugar -> пудра захар за печене (по-фина от обикновена захар)
 Ако срещнеш съставка, която не е в този речник и нямаш сигурен български еквивалент, транслитерирай името вместо да измисляш грешен превод.`;
 
+const VERB_GLOSSARY = `Речник на готварски глаголи/действия (превеждай със СЪЩИТЕ стандартни думи):
+- simmer -> оставете да къкри / на слаб огън (НИКОГА "търбуха" — това не е глагол в българския)
+- sauté/fry gently -> запържете леко
+- whisk -> разбийте (с тел)
+- fold in -> внимателно вмесете
+- marinate -> мариновайте
+- blanch -> бланширайте
+- reduce (sauce) -> сгъстете/намалете (соса)
+- season -> подправете
+- drain -> отцедете
+- preheat -> загрейте предварително
+- bring to a boil -> доведете до кипене
+- garnish -> украсете/гарнирайте
+Използвай само реално съществуващи български глаголи — никога не измисляй нова дума, която звучи подобно на оригинала.`;
+
 async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
@@ -178,6 +206,8 @@ async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) 
 ${MEASURE_GLOSSARY}
 
 ${INGREDIENT_GLOSSARY}
+
+${VERB_GLOSSARY}
 
 Правила за съставките:
 - Превеждай всяка съставка отделно и точно според оригиналното ѝ значение — никога не давай на две различни съставки един и същ превод, освен ако наистина означават едно и също нещо.
@@ -250,7 +280,7 @@ async function translateRecipeWithRetry(env, meal, ingredientsEn) {
     env,
     meal,
     ingredientsEn,
-    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан")'
+    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан"), или измислен несъществуващ глагол в стъпките (напр. "търбуха" вместо "къкри")'
   );
   if (data) return data;
 
