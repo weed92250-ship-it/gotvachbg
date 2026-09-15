@@ -87,9 +87,6 @@ function isCleanField(s) {
   return true;
 }
 
-// Мерни думи, за които AI-то често халюцинира безсмислени преводи
-// (напр. "зрънце", "хапка", "капка" вместо истинска мерна единица).
-// Ако измереното поле е ТОЧНО една от тези думи (без число/уточнение), приемаме го за съмнително.
 const SUSPICIOUS_MEASURE_WORDS = new Set([
   'зрънце', 'зрънца', 'хапка', 'хапки', 'капка', 'капки', 'частица', 'частици', 'кичур', 'кичури',
 ]);
@@ -97,9 +94,8 @@ const SUSPICIOUS_MEASURE_WORDS = new Set([
 function isSuspiciousMeasure(measure) {
   if (typeof measure !== 'string') return true;
   const trimmed = measure.trim().toLowerCase();
-  if (trimmed.length === 0) return false; // празно измерение е ОК (напр. "сол на вкус" отива в name)
+  if (trimmed.length === 0) return false;
   const words = trimmed.split(/\s+/);
-  // Само еднословни, безсмислени "мерки" без число пред тях будят съмнение.
   if (words.length === 1 && SUSPICIOUS_MEASURE_WORDS.has(words[0])) return true;
   return false;
 }
@@ -114,16 +110,12 @@ function countByKey(items, keyFn) {
 }
 
 function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
-  // Установява дали AI-то е "измислило" еднакви преводи за различни съставки
-  // (напр. две различни подправки, преведени погрешно с една и съща дума).
   const originalCounts = countByKey(originalIngredients, i => i.name.trim().toLowerCase());
   const translatedCounts = countByKey(translatedIngredients, i => (i.name || '').trim().toLowerCase());
 
   const maxOriginalDuplicate = Math.max(0, ...Array.from(originalCounts.values()));
   const maxTranslatedDuplicate = Math.max(0, ...Array.from(translatedCounts.values()));
 
-  // Ако в превода има повече повторения на едно и също име, отколкото в оригинала,
-  // почти сигурно е грешка в превода, а не съвпадение.
   return maxTranslatedDuplicate > Math.max(1, maxOriginalDuplicate);
 }
 
@@ -163,6 +155,19 @@ const MEASURE_GLOSSARY = `Речник на мерни единици (прев�
 - large/small/medium (за яйца, глави лук и т.н.) -> голям(а)/малък(ка)/среден(на)
 НИКОГА не превеждай мерна единица с думи като "зрънце", "хапка", "капка", "частица" — те не са реални мерни единици в българската кухня.`;
 
+const INGREDIENT_GLOSSARY = `Речник на съставки, които лесно се превеждат грешно (използвай ТОЧНО тези преводи):
+- plantain -> зелен банан (плантайн) — НИКОГА само "банан", тъй като обикновен сладък банан не става за готвене по този начин
+- callaloo -> калалу (листни зеленчуци) — ако няма точен превод, остави "калалу" транслитерирано, не измисляй заместител
+- scotch bonnet pepper -> чушка "scotch bonnet" (много лют вид чушка) — не превеждай като обикновена чушка или чили, уточни че е специфично лют вид
+- collard greens -> колар зеле (листно зеле)
+- okra -> бамя
+- yam -> игнам (сладък картоф не е точен превод)
+- chickpeas -> нахут
+- coriander/cilantro -> кориандър (пресен)
+- self-raising flour -> брашно с бакпулвер (не обикновено брашно)
+- caster sugar -> пудра захар за печене (по-фина от обикновена захар)
+Ако срещнеш съставка, която не е в този речник и нямаш сигурен български еквивалент, транслитерирай името вместо да измисляш грешен превод.`;
+
 async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) {
   const ingredientsListText = ingredientsEn
     .map((i, idx) => `${idx + 1}. ${i.measure || '-'} | ${i.name}`)
@@ -172,10 +177,16 @@ async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) 
 
 ${MEASURE_GLOSSARY}
 
+${INGREDIENT_GLOSSARY}
+
 Правила за съставките:
 - Превеждай всяка съставка отделно и точно според оригиналното ѝ значение — никога не давай на две различни съставки един и същ превод, освен ако наистина означават едно и също нещо.
 - Запази реда и броя на съставките идентични с оригинала.
-- Полето "measure" трябва да съдържа число (или "на вкус"/празен низ) плюс мерна единица от речника по-горе — никога само измислена дума.`;
+- Полето "measure" трябва да съдържа число (или "на вкус"/празен низ) плюс мерна единица от речника по-горе — никога само измислена дума.
+
+Правила за стъпките (instructions):
+- Ако рецептата съдържа няколко логически различни части (напр. приготвяне на основното ястие И отделно приготвяне на гарнитура/добавка), раздели ги на ясни абзаци с празен ред между тях, за да не изглеждат като един объркан текст.
+- Запази всички детайли от оригинала — не съкращавай и не пропускай стъпки, само структурирай по-четимо.`;
 
   const feedbackBlock = attemptFeedback
     ? `\n\nВАЖНО: Предишният ти опит беше отхвърлен, защото съдържаше грешка от този вид: ${attemptFeedback}. Моля, поправи това и бъди по-прецизен, особено с мерните единици и уникалността на всяка съставка.`
@@ -232,20 +243,17 @@ ${meal.strInstructions}
 }
 
 async function translateRecipeWithRetry(env, meal, ingredientsEn) {
-  // Първи опит
   let data = await translateRecipeWithAI(env, meal, ingredientsEn);
   if (data) return data;
 
-  // Втори опит с обратна връзка за често срещаните проблеми
   data = await translateRecipeWithAI(
     env,
     meal,
     ingredientsEn,
-    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки'
+    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан")'
   );
   if (data) return data;
 
-  // И двата опита се провалиха — връщаме оригинала на английски, за да не публикуваме брак.
   return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
 }
 
