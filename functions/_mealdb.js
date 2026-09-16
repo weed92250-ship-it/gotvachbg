@@ -119,21 +119,28 @@ function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
   return maxTranslatedDuplicate > Math.max(1, maxOriginalDuplicate);
 }
 
-function isCleanStepsArray(steps, minCount) {
-  if (!Array.isArray(steps) || steps.length < minCount) return false;
-  for (const step of steps) {
-    if (typeof step !== 'string') return false;
-    if (!isCleanField(step)) return false;
-  }
-  return true;
+// Известни грешни/безсмислени преводи на готварски глаголи, които вече сме засичали
+// в реални рецепти (напр. "търбуха" вместо "къкри" за "simmer"). Списъкът расте с времето.
+const BAD_INSTRUCTION_WORDS = [
+  'търбух', 'търбуха', 'търбухат', // грешен превод на "simmer"
+  'духови форми', 'духова форма', // грешен превод на "hole(s)" в форма за печене (напр. "12-hole tin")
+  'запеките', 'запек', // грешна форма на "запек" (constipation) вместо глагола "печете"/"изпечете"
+  'прахвайте', 'за прахване', // не съществуваща дума вместо "поръсете"/"за поръсване"
+];
+
+function hasBadInstructionWords(s) {
+  if (typeof s !== 'string') return false;
+  const lower = s.toLowerCase();
+  return BAD_INSTRUCTION_WORDS.some(w => lower.includes(w));
 }
 
 function validateTranslation(data, ingredientsEn) {
   const expectedCount = ingredientsEn.length;
-  if (!data || typeof data.title !== 'string') return false;
+  if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
-  if (!isCleanStepsArray(data.steps, 1)) return false;
+  if (hasMixedScriptGlitch(data.instructions)) return false;
+  if (hasBadInstructionWords(data.instructions)) return false;
 
   for (const ing of data.ingredients) {
     if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
@@ -174,8 +181,31 @@ const INGREDIENT_GLOSSARY = `Речник на съставки, които ле
 - chickpeas -> нахут
 - coriander/cilantro -> кориандър (пресен)
 - self-raising flour -> брашно с бакпулвер (не обикновено брашно)
-- caster sugar -> пудра захар за печене (по-фина от обикновена захар)
+- caster sugar -> ситна кристална захар (НЕ "пудра захар" — пудра захарта е на прах, caster sugar е фина, но все още кристална)
+- icing sugar/powdered sugar -> пудра захар
+- mincemeat (сладкото пълнеж за Коледни пайчета) -> минцемит (транслитерирано, запазва се като кулинарно понятие)
+- (baking tin with) 12 holes -> форма с 12 дупки/гнезда (НИКОГА "духова форма" — това не съществува)
 Ако срещнеш съставка, която не е в този речник и нямаш сигурен български еквивалент, транслитерирай името вместо да измисляш грешен превод.`;
+
+const ACTION_GLOSSARY = `Речник на кулинарни термини за форми и довършителни действия:
+- dust with sugar -> поръсете със захар (НИКОГА "прахвайте")
+- bake -> печете / изпечете (НИКОГА форма на думата "запек")
+- hole (in a baking tin) -> дупка/гнездо (НИКОГА "духова")`;
+
+const VERB_GLOSSARY = `Речник на готварски глаголи/действия (превеждай със СЪЩИТЕ стандартни думи):
+- simmer -> оставете да къкри / на слаб огън (НИКОГА "търбуха" — това не е глагол в българския)
+- sauté/fry gently -> запържете леко
+- whisk -> разбийте (с тел)
+- fold in -> внимателно вмесете
+- marinate -> мариновайте
+- blanch -> бланширайте
+- reduce (sauce) -> сгъстете/намалете (соса)
+- season -> подправете
+- drain -> отцедете
+- preheat -> загрейте предварително
+- bring to a boil -> доведете до кипене
+- garnish -> украсете/гарнирайте
+Използвай само реално съществуващи български глаголи — никога не измисляй нова дума, която звучи подобно на оригинала.`;
 
 async function translateRecipeWithAI(env, meal, ingredientsEn, attemptFeedback) {
   const ingredientsListText = ingredientsEn
@@ -188,17 +218,18 @@ ${MEASURE_GLOSSARY}
 
 ${INGREDIENT_GLOSSARY}
 
+${VERB_GLOSSARY}
+
+${ACTION_GLOSSARY}
+
 Правила за съставките:
 - Превеждай всяка съставка отделно и точно според оригиналното ѝ значение — никога не давай на две различни съставки един и същ превод, освен ако наистина означават едно и също нещо.
 - Запази реда и броя на съставките идентични с оригинала.
 - Полето "measure" трябва да съдържа число (или "на вкус"/празен низ) плюс мерна единица от речника по-горе — никога само измислена дума.
 
-Правила за стъпките (steps):
-- Раздели цялата рецепта на ОТДЕЛНИ, ясни стъпки — всяка стъпка е един самостоятелен елемент в масив, не един дълъг текст.
-- Всяка стъпка трябва да е кратко, ясно изречение или две (напр. "Загрейте фурната до 180°C." е една стъпка, "Смесете морковите с лука и чесъна в купа." е следваща стъпка).
-- НЕ пиши "Стъпка 1:", "Стъпка 2:" и т.н. в текста на самите стъпки — номерирането ще се добави автоматично от сайта.
-- Запази всички детайли от оригинала — не съкращавай и не пропускай стъпки, само раздели ги по-ясно.
-- Ако рецептата има две логически различни части (напр. основно ястие и отделна гарнитура), продължи номерацията последователно, без да ги смесваш в една стъпка.`;
+Правила за стъпките (instructions):
+- Ако рецептата съдържа няколко логически различни части (напр. приготвяне на основното ястие И отделно приготвяне на гарнитура/добавка), раздели ги на ясни абзаци с празен ред между тях, за да не изглеждат като един объркан текст.
+- Запази всички детайли от оригинала — не съкращавай и не пропускай стъпки, само структурирай по-четимо.`;
 
   const feedbackBlock = attemptFeedback
     ? `\n\nВАЖНО: Предишният ти опит беше отхвърлен, защото съдържаше грешка от този вид: ${attemptFeedback}. Моля, поправи това и бъди по-прецизен, особено с мерните единици и уникалността на всяка съставка.`
@@ -215,8 +246,8 @@ ${ingredientsListText}
 ${meal.strInstructions}
 
 Върни точно този JSON формат, нищо друго:
-{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "steps": ["първа стъпка тук", "втора стъпка тук", "..."]}
-Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред. Полето "steps" трябва да съдържа отделен елемент за всяка логическа стъпка от приготвянето.${feedbackBlock}`;
+{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
+Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.${feedbackBlock}`;
 
   let aiResponse;
   try {
@@ -245,11 +276,7 @@ ${meal.strInstructions}
   try {
     const data = JSON.parse(rawText);
     if (validateTranslation(data, ingredientsEn)) {
-      return {
-        title: data.title,
-        ingredients: data.ingredients,
-        instructions: data.steps.map((s, i) => `${i + 1}. ${s.trim()}`).join('\n\n'),
-      };
+      return data;
     }
   } catch (e) {
     // невалиден JSON, ще опитаме пак или ще паднем към fallback
@@ -266,13 +293,67 @@ async function translateRecipeWithRetry(env, meal, ingredientsEn) {
     env,
     meal,
     ingredientsEn,
-    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан")'
+    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан"), или измислен несъществуващ глагол в стъпките (напр. "търбуха" вместо "къкри")'
   );
   if (data) return data;
 
-  // И двата опита се провалиха — връщаме null, за да прескочим тази рецепта
-  // вместо да публикуваме брак или английски текст на българския сайт.
-  return null;
+  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+}
+
+// Намира вече публикувани рецепти, при които преводът е паднал (заглавието е
+// идентично с оригиналното английско заглавие, т.е. запазен е fallback-ът),
+// и опитва да ги преведе наново с подобрената логика — без да губи
+// снимка/youtube линк/дата на публикуване.
+export async function retranslateFailedRecipes(env, limit = 20) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, title, title_en, ingredients, instructions FROM recipes WHERE title = title_en LIMIT ?'
+  )
+    .bind(limit)
+    .all();
+
+  let fixed = 0;
+  let stillFailing = 0;
+  const errors = [];
+
+  for (const row of results || []) {
+    try {
+      let ingredientsEn;
+      try {
+        ingredientsEn = JSON.parse(row.ingredients || '[]');
+      } catch (e) {
+        ingredientsEn = [];
+      }
+      if (!Array.isArray(ingredientsEn) || ingredientsEn.length === 0) {
+        errors.push(`${row.id}: липсват съставки за повторен превод`);
+        continue;
+      }
+
+      const pseudoMeal = { strMeal: row.title_en, strInstructions: row.instructions };
+      const translated = await translateRecipeWithRetry(env, pseudoMeal, ingredientsEn);
+
+      // Ако translated.title все още съвпада с оригинала, значи и двата опита са паднали пак.
+      if (translated.title === row.title_en) {
+        stillFailing++;
+        continue;
+      }
+
+      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
+      await env.DB.prepare(
+        'UPDATE recipes SET title = ?, excerpt = ?, ingredients = ?, instructions = ? WHERE id = ?'
+      )
+        .bind(
+          translated.title, excerpt, JSON.stringify(translated.ingredients),
+          translated.instructions, row.id
+        )
+        .run();
+
+      fixed++;
+    } catch (err) {
+      errors.push(`${row.id}: ${String(err && err.message ? err.message : err)}`);
+    }
+  }
+
+  return { checked: (results || []).length, fixed, stillFailing, errors };
 }
 
 async function fetchRandomMeal() {
@@ -303,10 +384,6 @@ export async function runDailyImport(env) {
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
       const translated = await translateRecipeWithRetry(env, meal, ingredientsEn);
-      if (!translated) {
-        errors.push(`Преводът се провали за: ${meal.strMeal}`);
-        continue;
-      }
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
