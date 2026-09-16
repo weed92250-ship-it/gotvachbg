@@ -119,12 +119,21 @@ function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
   return maxTranslatedDuplicate > Math.max(1, maxOriginalDuplicate);
 }
 
+function isCleanStepsArray(steps, minCount) {
+  if (!Array.isArray(steps) || steps.length < minCount) return false;
+  for (const step of steps) {
+    if (typeof step !== 'string') return false;
+    if (!isCleanField(step)) return false;
+  }
+  return true;
+}
+
 function validateTranslation(data, ingredientsEn) {
   const expectedCount = ingredientsEn.length;
-  if (!data || typeof data.title !== 'string' || typeof data.instructions !== 'string') return false;
+  if (!data || typeof data.title !== 'string') return false;
   if (!Array.isArray(data.ingredients) || data.ingredients.length !== expectedCount) return false;
   if (!isCleanField(data.title)) return false;
-  if (hasMixedScriptGlitch(data.instructions)) return false;
+  if (!isCleanStepsArray(data.steps, 1)) return false;
 
   for (const ing of data.ingredients) {
     if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
@@ -184,9 +193,12 @@ ${INGREDIENT_GLOSSARY}
 - Запази реда и броя на съставките идентични с оригинала.
 - Полето "measure" трябва да съдържа число (или "на вкус"/празен низ) плюс мерна единица от речника по-горе — никога само измислена дума.
 
-Правила за стъпките (instructions):
-- Ако рецептата съдържа няколко логически различни части (напр. приготвяне на основното ястие И отделно приготвяне на гарнитура/добавка), раздели ги на ясни абзаци с празен ред между тях, за да не изглеждат като един объркан текст.
-- Запази всички детайли от оригинала — не съкращавай и не пропускай стъпки, само структурирай по-четимо.`;
+Правила за стъпките (steps):
+- Раздели цялата рецепта на ОТДЕЛНИ, ясни стъпки — всяка стъпка е един самостоятелен елемент в масив, не един дълъг текст.
+- Всяка стъпка трябва да е кратко, ясно изречение или две (напр. "Загрейте фурната до 180°C." е една стъпка, "Смесете морковите с лука и чесъна в купа." е следваща стъпка).
+- НЕ пиши "Стъпка 1:", "Стъпка 2:" и т.н. в текста на самите стъпки — номерирането ще се добави автоматично от сайта.
+- Запази всички детайли от оригинала — не съкращавай и не пропускай стъпки, само раздели ги по-ясно.
+- Ако рецептата има две логически различни части (напр. основно ястие и отделна гарнитура), продължи номерацията последователно, без да ги смесваш в една стъпка.`;
 
   const feedbackBlock = attemptFeedback
     ? `\n\nВАЖНО: Предишният ти опит беше отхвърлен, защото съдържаше грешка от този вид: ${attemptFeedback}. Моля, поправи това и бъди по-прецизен, особено с мерните единици и уникалността на всяка съставка.`
@@ -203,8 +215,8 @@ ${ingredientsListText}
 ${meal.strInstructions}
 
 Върни точно този JSON формат, нищо друго:
-{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "instructions": "..."}
-Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред.${feedbackBlock}`;
+{"title": "...", "ingredients": [{"measure": "...", "name": "..."}], "steps": ["първа стъпка тук", "втора стъпка тук", "..."]}
+Полето "ingredients" трябва да съдържа точно ${ingredientsEn.length} елемента, в същия ред. Полето "steps" трябва да съдържа отделен елемент за всяка логическа стъпка от приготвянето.${feedbackBlock}`;
 
   let aiResponse;
   try {
@@ -233,7 +245,11 @@ ${meal.strInstructions}
   try {
     const data = JSON.parse(rawText);
     if (validateTranslation(data, ingredientsEn)) {
-      return data;
+      return {
+        title: data.title,
+        ingredients: data.ingredients,
+        instructions: data.steps.map((s, i) => `${i + 1}. ${s.trim()}`).join('\n\n'),
+      };
     }
   } catch (e) {
     // невалиден JSON, ще опитаме пак или ще паднем към fallback
@@ -254,7 +270,9 @@ async function translateRecipeWithRetry(env, meal, ingredientsEn) {
   );
   if (data) return data;
 
-  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+  // И двата опита се провалиха — връщаме null, за да прескочим тази рецепта
+  // вместо да публикуваме брак или английски текст на българския сайт.
+  return null;
 }
 
 async function fetchRandomMeal() {
@@ -285,6 +303,10 @@ export async function runDailyImport(env) {
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
       const translated = await translateRecipeWithRetry(env, meal, ingredientsEn);
+      if (!translated) {
+        errors.push(`Преводът се провали за: ${meal.strMeal}`);
+        continue;
+      }
 
       const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
