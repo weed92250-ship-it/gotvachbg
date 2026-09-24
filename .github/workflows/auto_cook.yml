@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Изтегляне на кода
         uses: actions/checkout@v4
@@ -17,9 +17,9 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Инсталиране на библиотеки
+      - name: Инсталиране на новата библиотека
         run: |
-          pip install google-generativeai
+          pip install google-genai
 
       - name: Генериране на рецепта
         env:
