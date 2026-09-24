@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 
 # Вземане на ключа от GitHub Secrets
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -7,7 +7,8 @@ api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
     raise ValueError("ГРЕШКА: Липсва GEMINI_API_KEY в Secrets!")
 
-genai.configure(api_key=api_key)
+# Инициализация с новия SDK на Google
+client = genai.Client(api_key=api_key)
 
 def generate_recipe():
     print("🍳 Gemini генерира новата рецепта...")
@@ -24,8 +25,10 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+    )
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
