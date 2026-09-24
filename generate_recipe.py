@@ -24,19 +24,26 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    # Ползваме стабилния gemini-1.5-flash без претоварвания
-    for attempt in range(3):
+    # Списък с актуалните модели за новата библиотека google-genai
+    models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash']
+    
+    response = None
+    for model_name in models_to_try:
         try:
+            print(f"Опит с модел: {model_name}...")
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model=model_name,
                 contents=prompt,
             )
-            break
+            if response and response.text:
+                print(f"✅ Успешно генериране с {model_name}!")
+                break
         except Exception as e:
-            print(f"⚠️ Опит {attempt + 1} се забави. Изчакване 5 секунди... Грешка: {e}")
-            time.sleep(5)
-    else:
-        raise RuntimeError("Неуспешно свързване с Gemini след 3 опита.")
+            print(f"⚠️ Моделът {model_name} върна грешка: {e}. Пробваме следващия...")
+            time.sleep(2)
+            
+    if not response or not response.text:
+        raise RuntimeError("Неуспешно свързване с наличните Gemini модели.")
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
