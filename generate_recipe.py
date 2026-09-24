@@ -1,6 +1,8 @@
 import os
+import time
 from google import genai
 
+# Вземане на ключа от GitHub Secrets
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if not api_key:
@@ -23,11 +25,19 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    # Ползваме gemini-2.0-flash, който не е претоварен
-    response = client.models.generate_content(
-        model='gemini-2.0-flash',
-        contents=prompt,
-    )
+    # Автоматичен опит с изчакване при временни 503 грешки
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.6-flash',
+                contents=prompt,
+            )
+            break
+        except Exception as e:
+            print(f"⚠️ Опит {attempt + 1} се забави. Изчакване 5 секунди... Грешка: {e}")
+            time.sleep(5)
+    else:
+        raise RuntimeError("Неуспешно свързване с Gemini след 3 опита.")
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
