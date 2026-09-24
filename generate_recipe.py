@@ -24,12 +24,11 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    # Използваме единствения актуален модел
     model_name = 'gemini-3.6-flash'
-    
-    # Добавяме кратък ретрай при пиково натоварване (503)
     response = None
-    for attempt in range(1, 4):
+    
+    # Правим 5 опита, като увеличаваме времето за изчакване (15s, 30s, 45s...)
+    for attempt in range(1, 6):
         try:
             print(f"Опит {attempt} с модел {model_name}...")
             response = client.models.generate_content(
@@ -40,11 +39,12 @@ def generate_recipe():
                 print("✅ Успешно генериране!")
                 break
         except Exception as e:
-            print(f"⚠️ Опит {attempt} се забави. Грешка: {e}")
-            time.sleep(5)
+            wait_time = attempt * 15
+            print(f"⚠️ Сървърът е натоварен (503). Изчакване {wait_time} секунди... (Грешка: {e})")
+            time.sleep(wait_time)
             
     if not response or not response.text:
-        raise RuntimeError("Неуспешно свързване с Gemini.")
+        raise RuntimeError("Неуспешно свързване с Gemini след 5 опита.")
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
