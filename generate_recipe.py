@@ -24,9 +24,9 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    # Ползваме актуалния модел gemini-2.5-flash
+    # Използваме актуалния модел gemini-3.6-flash
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.6-flash',
         contents=prompt,
     )
     
