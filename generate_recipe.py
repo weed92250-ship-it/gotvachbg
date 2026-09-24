@@ -27,7 +27,6 @@ def generate_recipe():
     model_name = 'gemini-3.6-flash'
     response = None
     
-    # Правим 5 опита, като увеличаваме времето за изчакване (15s, 30s, 45s...)
     for attempt in range(1, 6):
         try:
             print(f"Опит {attempt} с модел {model_name}...")
@@ -40,11 +39,11 @@ def generate_recipe():
                 break
         except Exception as e:
             wait_time = attempt * 15
-            print(f"⚠️ Сървърът е натоварен (503). Изчакване {wait_time} секунди... (Грешка: {e})")
+            print(f"⚠️ Изчакване {wait_time} сек... Грешка: {e}")
             time.sleep(wait_time)
             
     if not response or not response.text:
-        raise RuntimeError("Неуспешно свързване с Gemini след 5 опита.")
+        raise RuntimeError("Неуспешно свързване след 5 опита.")
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
