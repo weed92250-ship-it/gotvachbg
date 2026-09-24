@@ -1,7 +1,6 @@
 import os
 from google import genai
 
-# Вземане на ключа от GitHub Secrets
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if not api_key:
@@ -24,9 +23,9 @@ def generate_recipe():
     Върни САМО чист HTML код, без markdown тагове като ```html.
     """
     
-    # Използваме актуалния модел gemini-3.6-flash
+    # Ползваме gemini-2.0-flash, който не е претоварен
     response = client.models.generate_content(
-        model='gemini-3.6-flash',
+        model='gemini-2.0-flash',
         contents=prompt,
     )
     
