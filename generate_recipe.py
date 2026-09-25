@@ -17,22 +17,26 @@ SIMILAR_RECIPES = [
     {
         "title": "Домашен качамак със сирене и масло",
         "time": "25 мин",
-        "prompt": "Bulgarian kachamak polenta cheese butter food photography"
+        "prompt": "Bulgarian kachamak polenta cheese butter food photography",
+        "fallback_img": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop"
     },
     {
         "title": "Сочна запеканка с картофи и кашкавал",
         "time": "40 мин",
-        "prompt": "Baked potato casserole cheese golden crust food photography"
+        "prompt": "Baked potato casserole cheese golden crust food photography",
+        "fallback_img": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop"
     },
     {
         "title": "Традиционна шопска салата",
         "time": "15 мин",
-        "prompt": "Shopska salad fresh tomatoes cucumber feta cheese food photography"
+        "prompt": "Shopska salad fresh tomatoes cucumber feta cheese food photography",
+        "fallback_img": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200&auto=format&fit=crop"
     },
     {
         "title": "Хрупкави банички със спанак и извара",
         "time": "45 мин",
-        "prompt": "Spinach cheese pastry rolls golden food photography"
+        "prompt": "Spinach cheese pastry rolls golden food photography",
+        "fallback_img": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=200&auto=format&fit=crop"
     }
 ]
 
@@ -40,6 +44,7 @@ FALLBACK_RECIPES = [
     {
         "title": "Класически хрупкави триъгълни банички със сирене",
         "image_prompt": "Bulgarian cheese pastry banitsa golden crispy fresh baked food photography",
+        "fallback_img": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=800&auto=format&fit=crop",
         "content": """
         <p><strong>Време:</strong> 45 мин | <strong>Порции:</strong> 4</p>
         <h3>Необходими продукти:</h3>
@@ -61,6 +66,7 @@ FALLBACK_RECIPES = [
     {
         "title": "Ароматно пилешко фрикасе с маслено-лимонов сос",
         "image_prompt": "Chicken fricassee creamy lemon sauce food photography gourmet",
+        "fallback_img": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=800&auto=format&fit=crop",
         "content": """
         <p><strong>Време:</strong> 50 мин | <strong>Порции:</strong> 4</p>
         <h3>Необходими продукти:</h3>
@@ -80,6 +86,184 @@ FALLBACK_RECIPES = [
         """
     }
 ]
+
+CSS_STYLES = """
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #f7f3ed;
+        color: #4a3b32;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .logo {
+        font-size: 24px;
+        font-weight: bold;
+        color: #a9442a;
+        text-decoration: none;
+    }
+    .search-box input {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #e2d9cd;
+        background-color: #fbf9f5;
+        width: 220px;
+        font-size: 14px;
+        outline: none;
+    }
+    .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .filter-btn {
+        background-color: #efe8dc;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 16px;
+        color: #6c5c53;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .filter-btn.active {
+        background-color: #b85d38;
+        color: white;
+    }
+    .main-layout {
+        display: grid;
+        grid-template-columns: 1fr 310px;
+        gap: 25px;
+        margin-top: 20px;
+    }
+    .recipe-card, .static-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    }
+    .recipe-image {
+        width: 100%;
+        height: 380px;
+        object-fit: cover;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .recipe-card h2, .static-card h1 {
+        color: #b85d38;
+        margin-top: 0;
+    }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .sidebar {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        height: fit-content;
+    }
+    .sidebar h3 {
+        margin-top: 0;
+        color: #b85d38;
+        font-size: 18px;
+        border-bottom: 2px solid #f7f3ed;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+    }
+    .similar-item {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        align-items: center;
+    }
+    .similar-item img {
+        width: 70px;
+        height: 70px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+    .similar-item-info h4 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+    }
+    .similar-item-info h4 a {
+        color: #4a3b32;
+        text-decoration: none;
+    }
+    .similar-item-info span {
+        font-size: 12px;
+        color: #9c8c83;
+    }
+    footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e2d9cd;
+        color: #9c8c83;
+        font-size: 13px;
+    }
+    .footer-links a {
+        color: #6c5c53;
+        text-decoration: none;
+        margin: 0 10px;
+        font-size: 14px;
+    }
+    .footer-links .admin-link {
+        color: #b85d38;
+        font-weight: 600;
+    }
+    @media (max-width: 820px) {
+        .main-layout { grid-template-columns: 1fr; }
+    }
+"""
+
+def create_static_pages():
+    pages = {
+        "about.html": ("За нас", "<h1>За Готвач БГ</h1><p>Готвач БГ е вашият ежедневен източник на кулинарно вдъхновение. Всяка рецепта е внимателно подбрана и структурирана, за да превърне готвенето в удоволствие.</p>"),
+        "contacts.html": ("Контакти", "<h1>Свържете се с нас</h1><p>Имате въпроси или предложения? Пишете ни на: <strong>contact@gotvachbg.com</strong></p>"),
+        "privacy.html": ("Поверителност", "<h1>Политика за поверителност</h1><p>Ние ценим вашата поверителност. Този уебсайт не събира лични данни и използва стандартни бисквитки за подобряване на потребителското изживяване.</p>")
+    }
+    
+    for filename, (title, content) in pages.items():
+        html = f"""<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} — Готвач БГ</title>
+    <style>{CSS_STYLES}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/" class="logo">Готвач БГ</a>
+        </div>
+        <div class="static-card">
+            {content}
+        </div>
+        <footer>
+            <div class="footer-links">
+                <a href="/about.html">За нас</a> |
+                <a href="/contacts.html">Контакти</a> |
+                <a href="/privacy.html">Поверителност</a> |
+                <a href="/admin" class="admin-link">Админ</a>
+            </div>
+            <p>© GotvachBG. Всички права запазени.</p>
+        </footer>
+    </div>
+</body>
+</html>"""
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html)
 
 def generate_recipe():
     print("🍳 Gemini генерира новата рецепта...")
@@ -116,21 +300,22 @@ def generate_recipe():
         if recipe_body:
             break
             
+    fallback_backup_img = "[https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop](https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&auto=format&fit=crop)"
+    
     if not recipe_body:
         print("⚠️ Използване на резервна рецепта...")
         fallback = random.choice(FALLBACK_RECIPES)
         recipe_body = f"<h2>{fallback['title']}</h2>" + fallback["content"]
         image_prompt = fallback["image_prompt"]
+        fallback_backup_img = fallback["fallback_img"]
     else:
         title_match = re.search(r'<h2>(.*?)</h2>', recipe_body)
         title_text = title_match.group(1) if title_match else "delicious food dish"
         image_prompt = f"delicious {title_text} food photography gourmet cinematic lighting 4k"
 
-    # Генериране на безплатен AI URL за основната снимка
     encoded_prompt = urllib.parse.quote(image_prompt)
     main_image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){encoded_prompt}?width=800&height=450&nologo=true"
 
-    # Генериране на HTML за страничната лента
     selected_similars = random.sample(SIMILAR_RECIPES, 3)
     sidebar_html = ""
     for item in selected_similars:
@@ -138,7 +323,7 @@ def generate_recipe():
         img_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){item_img_prompt}?width=160&height=160&nologo=true"
         sidebar_html += f"""
         <div class="similar-item">
-            <img src="{img_url}" alt="{item['title']}">
+            <img src="{img_url}" onerror="this.onerror=null;this.src='{item['fallback_img']}';" alt="{item['title']}">
             <div class="similar-item-info">
                 <h4><a href="#">{item['title']}</a></h4>
                 <span>⏱️ {item['time']}</span>
@@ -152,187 +337,7 @@ def generate_recipe():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Готвач БГ — Рецепти всеки ден</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f7f3ed;
-            color: #4a3b32;
-            margin: 0;
-            padding: 20px;
-        }}
-        .container {{
-            max-width: 1100px;
-            margin: 0 auto;
-        }}
-        .header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }}
-        .logo {{
-            font-size: 24px;
-            font-weight: bold;
-            color: #a9442a;
-            text-decoration: none;
-        }}
-        .search-box input {{
-            padding: 8px 16px;
-            border-radius: 20px;
-            border: 1px solid #e2d9cd;
-            background-color: #fbf9f5;
-            width: 220px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }}
-        .search-box input:focus {{
-            border-color: #b85d38;
-        }}
-        .filters {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }}
-        .filter-btn {{
-            background-color: #efe8dc;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 16px;
-            color: #6c5c53;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }}
-        .filter-btn:hover {{
-            background-color: #e2d8c7;
-        }}
-        .filter-btn.active {{
-            background-color: #b85d38;
-            color: white;
-        }}
-
-        /* Лейаут с 2 колони */
-        .main-layout {{
-            display: grid;
-            grid-template-columns: 1fr 310px;
-            gap: 25px;
-            margin-top: 20px;
-        }}
-
-        .recipe-card {{
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        }}
-        .recipe-image {{
-            width: 100%;
-            height: 380px;
-            object-fit: cover;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }}
-        .recipe-card h2 {{
-            color: #b85d38;
-            margin-top: 0;
-            font-size: 26px;
-        }}
-        ul, ol {{ padding-left: 20px; }}
-        li {{ margin-bottom: 8px; }}
-
-        /* Странична лента */
-        .sidebar {{
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-            height: fit-content;
-        }}
-        .sidebar h3 {{
-            margin-top: 0;
-            color: #b85d38;
-            font-size: 18px;
-            border-bottom: 2px solid #f7f3ed;
-            padding-bottom: 10px;
-            margin-bottom: 18px;
-        }}
-        .similar-item {{
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-            align-items: center;
-        }}
-        .similar-item:last-child {{
-            margin-bottom: 0;
-        }}
-        .similar-item img {{
-            width: 70px;
-            height: 70px;
-            border-radius: 10px;
-            object-fit: cover;
-        }}
-        .similar-item-info h4 {{
-            margin: 0 0 4px 0;
-            font-size: 14px;
-            line-height: 1.3;
-        }}
-        .similar-item-info h4 a {{
-            color: #4a3b32;
-            text-decoration: none;
-            transition: color 0.2s;
-        }}
-        .similar-item-info h4 a:hover {{
-            color: #b85d38;
-        }}
-        .similar-item-info span {{
-            font-size: 12px;
-            color: #9c8c83;
-        }}
-
-        #no-results {{
-            display: none;
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            color: #8c7b70;
-        }}
-
-        footer {{
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e2d9cd;
-            color: #9c8c83;
-            font-size: 13px;
-        }}
-        .footer-links {{
-            margin-bottom: 10px;
-        }}
-        .footer-links a {{
-            color: #6c5c53;
-            text-decoration: none;
-            margin: 0 10px;
-            font-size: 14px;
-        }}
-        .footer-links a:hover {{
-            color: #b85d38;
-            text-decoration: underline;
-        }}
-        .footer-links .admin-link {{
-            color: #b85d38;
-            font-weight: 600;
-        }}
-
-        /* Адаптивност за мобилни устройства */
-        @media (max-width: 820px) {{
-            .main-layout {{
-                grid-template-columns: 1fr;
-            }}
-        }}
-    </style>
+    <style>{CSS_STYLES}</style>
 </head>
 <body>
     <div class="container">
@@ -359,13 +364,8 @@ def generate_recipe():
         <div class="main-layout">
             <div class="main-content">
                 <div class="recipe-card" id="recipeCard">
-                    <img src="{main_image_url}" alt="Снимка на ястието" class="recipe-image">
+                    <img src="{main_image_url}" onerror="this.onerror=null;this.src='{fallback_backup_img}';" alt="Снимка на ястието" class="recipe-image">
                     {recipe_body}
-                </div>
-
-                <div id="no-results">
-                    <h3>Няма намерена рецепта по избраните критерии</h3>
-                    <p>Опитайте с друга дума в търсачката или изберете "Всички".</p>
                 </div>
             </div>
 
@@ -385,44 +385,6 @@ def generate_recipe():
             <p>© GotvachBG. Всички права запазени.</p>
         </footer>
     </div>
-
-    <script>
-        const searchInput = document.getElementById('searchInput');
-        const recipeCard = document.getElementById('recipeCard');
-        const noResults = document.getElementById('no-results');
-        const filterButtons = document.querySelectorAll('.filter-btn');
-
-        filterButtons.forEach(button => {{
-            button.addEventListener('click', function() {{
-                const siblingButtons = this.parentElement.querySelectorAll('.filter-btn');
-                siblingButtons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                filterRecipe();
-            }});
-        }});
-
-        searchInput.addEventListener('input', filterRecipe);
-
-        function filterRecipe() {{
-            const query = searchInput.value.toLowerCase().trim();
-            const textContent = recipeCard.innerText.toLowerCase();
-            
-            const activeKitchen = document.querySelector('#kitchenFilters .filter-btn.active').textContent.toLowerCase();
-            const activeDiet = document.querySelector('#dietFilters .filter-btn.active').textContent.toLowerCase();
-
-            let matchesSearch = query === '' || textContent.includes(query);
-            let matchesKitchen = activeKitchen.includes('всички') || textContent.includes(activeKitchen);
-            let matchesDiet = activeDiet.includes('всички') || textContent.includes(activeDiet);
-
-            if (matchesSearch && matchesKitchen && matchesDiet) {{
-                recipeCard.style.display = 'block';
-                noResults.style.display = 'none';
-            }} else {{
-                recipeCard.style.display = 'none';
-                noResults.style.display = 'block';
-            }}
-        }}
-    </script>
 </body>
 </html>"""
 
@@ -431,8 +393,10 @@ def generate_recipe():
 
     with open("latest_recipe.html", "w", encoding="utf-8") as f:
         f.write(full_html)
-        
-    print("🎉 Страницата е обновена със странична лента и подобни рецепти!")
+
+    # Генериране на помощните страници
+    create_static_pages()
+    print("🎉 Всички страници и снимки са обновени успешно!")
 
 if __name__ == "__main__":
     generate_recipe()
