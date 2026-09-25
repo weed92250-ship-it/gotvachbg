@@ -1,5 +1,6 @@
 import os
 import time
+import random
 from google import genai
 
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -8,6 +9,58 @@ if not api_key:
     raise ValueError("ГРЕШКА: Липсва GEMINI_API_KEY в Secrets!")
 
 client = genai.Client(api_key=api_key)
+
+# Резервни рецепти, ако сървърите на Google Gemini са напълно недостъпни (503/429)
+FALLBACK_RECIPES = [
+    """
+    <h2>Класически хрупкави триъгълни банички със сирене и масло</h2>
+    <p><strong>Време за приготвяне:</strong> 45 минути | <strong>Порции:</strong> 4 порции</p>
+    <h3>Необходими продукти:</h3>
+    <ul>
+        <li>1 пакет фини кори за баница (400 г)</li>
+        <li>300 г българско бяло сирене</li>
+        <li>3 eggs (разбити)</li>
+        <li>100 г краве масло (разтопено)</li>
+        <li>4 с.л. кисело мляко с 1/2 ч.л. сода за хляб</li>
+    </ul>
+    <h3>Начин на приготвяне:</h3>
+    <ol>
+        <li>В купа разбъркайте сиренето, яйцата и киселото мляко със содата.</li>
+        <li>Нарежете корите по дължина на ленти с ширина около 8-10 см.</li>
+        <li>Намажете всяка лента с малко разтопено масло, сложете 1 с.л. от плънката в единия край и сгъвайте на триъгълник.</li>
+        <li>Подредете баничките в тава, покрита с хартия за печене, и ги намажете с останалото масло.</li>
+        <li>Печете в предварително загрята фурна на 190°C за около 20-25 минути до апетитен златист цвят.</li>
+    </ol>
+    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px;">
+        <strong>💡 Съвет от готвача:</strong> Веднага след изваждане от фурната попръскайте баничките леко с няколко капки студена вода и ги покрийте с кърпа за 5 минути, за да омекнат отвътре.
+    </div>
+    """,
+    """
+    <h2>Ароматно пилешко фрикасе с маслено-лимонов сос</h2>
+    <p><strong>Време за приготвяне:</strong> 50 минути | <strong>Порции:</strong> 4 порции</p>
+    <h3>Необходими продукти:</h3>
+    <ul>
+        <li>600 г пилешко филе (нарязано на хапки)</li>
+        <li>50 г краве масло + 2 с.л. зехтин</li>
+        <li>2 с.л. брашно</li>
+        <li>1 жълтък</li>
+        <li>3 с.л. кисело мляко</li>
+        <li>Сок от 1/2 лимон</li>
+        <li>Сол, черен пипер и пресен магданоз</li>
+    </ul>
+    <h3>Начин на приготвяне:</h3>
+    <ol>
+        <li>Сварете пилешкото месо в подсолена вода за 20 минути и запазете бульона.</li>
+        <li>В дълбок тиган разтопете маслото със зехтина и запържете брашното за 1 минута до златисто.</li>
+        <li>Постепенно добавяйте от топля пилешки бульон при непрекъснато бъркане с телена бъркалка, докато се получи гладък сос.</li>
+        <li>Добавете свареното пилешко месо и оставете да къкри 10 минути на слаб огън.</li>
+        <li>Застройте ястието: в купа разбийте жълтъка с киселото мляко и лимоновия сок. Добавете малко от топла сос към сместа, след което я върнете в тигана при постоянно бъркане.</li>
+    </ol>
+    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px;">
+        <strong>💡 Съвет от готвача:</strong> Не оставяйте фрикасето да завира силно след добавяне на застройката с жълтъка, за да не се пресече сосът.
+    </div>
+    """
+]
 
 def generate_recipe():
     print("🍳 Gemini генерира новата рецепта...")
@@ -24,13 +77,12 @@ def generate_recipe():
     Върни САМО съдържанието на рецептата в HTML тагове, без markdown (```html).
     """
     
-    # Използваме само актуалните поддържани модели
     models_to_try = ['gemini-3.8-flash', 'gemini-3.6-flash']
     recipe_body = None
     
     for model_name in models_to_try:
         print(f"Опит с модел {model_name}...")
-        for attempt in range(1, 4):
+        for attempt in range(1, 3):
             try:
                 response = client.models.generate_content(
                     model=model_name,
@@ -38,19 +90,20 @@ def generate_recipe():
                 )
                 if response and response.text:
                     recipe_body = response.text.replace("```html", "").replace("```", "").strip()
-                    print(f"✅ Успешно генериране с {model_name}!")
+                    print(f"✅ Успешно генериране с AI модел: {model_name}!")
                     break
             except Exception as e:
-                # По-дълго изчакване (15s, 30s, 45s) при пренатоварени сървъри (503)
-                wait_time = attempt * 15
+                wait_time = attempt * 10
                 print(f"⚠️ Опит {attempt} за {model_name} върна грешка: {e}. Пауза {wait_time} сек...")
                 time.sleep(wait_time)
         
         if recipe_body:
             break
             
+    # Задействане на резервния вариант, ако Google AI сървърите са долу (503)
     if not recipe_body:
-        raise RuntimeError("Неуспешно генериране поради временно пренатоварване на сървърите на Gemini.")
+        print("⚠️ Сървърите на Gemini са претоварени (503). Задейства се резервна кулинарна рецепта!")
+        recipe_body = random.choice(FALLBACK_RECIPES)
 
     full_html = f"""<!DOCTYPE html>
 <html lang="bg">
@@ -90,7 +143,7 @@ def generate_recipe():
     with open("latest_recipe.html", "w", encoding="utf-8") as f:
         f.write(full_html)
         
-    print("🎉 Страницата е обновена успешно!")
+    print("🎉 Страницата index.html е обновена успешно!")
 
 if __name__ == "__main__":
     generate_recipe()
