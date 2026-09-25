@@ -47,10 +47,14 @@ def generate_recipe():
     
     final_html = response.text.replace("```html", "").replace("```", "").strip()
 
+    # Записва директно главната страница на сайта
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(final_html)
+
     with open("latest_recipe.html", "w", encoding="utf-8") as f:
         f.write(final_html)
         
-    print("🎉 Рецептата е запазена успешно!")
+    print("🎉 Рецептата е запазена като главна страница!")
 
 if __name__ == "__main__":
     generate_recipe()
