@@ -11,6 +11,7 @@
         color: #4a3b32;
         margin: 0;
         padding: 20px;
+        line-height: 1.6;
     }
     .container {
         max-width: 1100px;
@@ -23,7 +24,7 @@
         margin-bottom: 25px;
     }
     .logo {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: bold;
         color: #a9442a;
         text-decoration: none;
@@ -58,29 +59,49 @@
     }
     .main-layout {
         display: grid;
-        grid-template-columns: 1fr 310px;
+        grid-template-columns: 1fr 320px;
         gap: 25px;
         margin-top: 20px;
     }
     .recipe-card, .static-card {
         background: white;
         border-radius: 16px;
-        padding: 30px;
+        padding: 35px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.04);
     }
     .recipe-image {
         width: 100%;
-        height: 380px;
+        height: 400px;
         object-fit: cover;
         border-radius: 12px;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     .recipe-card h2, .static-card h1 {
         color: #b85d38;
         margin-top: 0;
+        font-size: 28px;
     }
-    ul, ol { padding-left: 20px; }
-    li { margin-bottom: 8px; }
+    .recipe-card h3 {
+        color: #8c3b23;
+        border-bottom: 2px solid #f7f3ed;
+        padding-bottom: 8px;
+        margin-top: 25px;
+    }
+    .recipe-meta {
+        background-color: #fdfaf6;
+        border-left: 4px solid #b85d38;
+        padding: 12px 18px;
+        border-radius: 0 8px 8px 0;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+    .recipe-intro {
+        font-size: 16px;
+        font-style: italic;
+        color: #6c5c53;
+    }
+    ul, ol { padding-left: 22px; }
+    li { margin-bottom: 10px; }
     .sidebar {
         background: white;
         border-radius: 16px;
@@ -151,7 +172,7 @@
         <div class="header">
             <a href="/" class="logo">Готвач БГ</a>
         </div>
-        <div class="static-card"><h1>Политика за поверителност</h1><p>Този уебсайт цени вашата поверителност.</p></div>
+        <div class="static-card"><h1>Политика за поверителност</h1><p>Този уебсайт цени вашата поверителност и използва стандартни бисквитки за подобряване на потребителското изживяване.</p></div>
         <footer>
             <div class="footer-links">
                 <a href="/about.html">За нас</a> |
