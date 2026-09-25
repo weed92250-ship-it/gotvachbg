@@ -10,55 +10,42 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# Резервни рецепти, ако сървърите на Google Gemini са напълно недостъпни (503/429)
 FALLBACK_RECIPES = [
     """
-    <h2>Класически хрупкави триъгълни банички със сирене и масло</h2>
-    <p><strong>Време за приготвяне:</strong> 45 минути | <strong>Порции:</strong> 4 порции</p>
+    <h2>Класически хрупкави триъгълни банички със сирене</h2>
+    <p><strong>Време:</strong> 45 мин | <strong>Порции:</strong> 4</p>
     <h3>Необходими продукти:</h3>
     <ul>
         <li>1 пакет фини кори за баница (400 г)</li>
         <li>300 г българско бяло сирене</li>
-        <li>3 eggs (разбити)</li>
+        <li>3 яйца</li>
         <li>100 г краве масло (разтопено)</li>
-        <li>4 с.л. кисело мляко с 1/2 ч.л. сода за хляб</li>
+        <li>4 с.л. кисело мляко с 1/2 ч.л. сода</li>
     </ul>
     <h3>Начин на приготвяне:</h3>
     <ol>
-        <li>В купа разбъркайте сиренето, яйцата и киселото мляко със содата.</li>
-        <li>Нарежете корите по дължина на ленти с ширина около 8-10 см.</li>
-        <li>Намажете всяка лента с малко разтопено масло, сложете 1 с.л. от плънката в единия край и сгъвайте на триъгълник.</li>
-        <li>Подредете баничките в тава, покрита с хартия за печене, и ги намажете с останалото масло.</li>
-        <li>Печете в предварително загрята фурна на 190°C за около 20-25 минути до апетитен златист цвят.</li>
+        <li>Разбъркайте сиренето, яйцата и киселото мляко със содата.</li>
+        <li>Нарежете корите на ленти (8-10 см), намажете с масло и поставете 1 с.л. плънка.</li>
+        <li>Сгънете на триъгълници и печете на 190°C за 20-25 минути.</li>
     </ol>
-    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px;">
-        <strong>💡 Съвет от готвача:</strong> Веднага след изваждане от фурната попръскайте баничките леко с няколко капки студена вода и ги покрийте с кърпа за 5 минути, за да омекнат отвътре.
-    </div>
     """,
     """
     <h2>Ароматно пилешко фрикасе с маслено-лимонов сос</h2>
-    <p><strong>Време за приготвяне:</strong> 50 минути | <strong>Порции:</strong> 4 порции</p>
+    <p><strong>Време:</strong> 50 мин | <strong>Порции:</strong> 4</p>
     <h3>Необходими продукти:</h3>
     <ul>
-        <li>600 г пилешко филе (нарязано на хапки)</li>
+        <li>600 г пилешко филе</li>
         <li>50 г краве масло + 2 с.л. зехтин</li>
         <li>2 с.л. брашно</li>
-        <li>1 жълтък</li>
-        <li>3 с.л. кисело мляко</li>
+        <li>1 жълтък + 3 с.л. кисело мляко</li>
         <li>Сок от 1/2 лимон</li>
-        <li>Сол, черен пипер и пресен магданоз</li>
     </ul>
     <h3>Начин на приготвяне:</h3>
     <ol>
-        <li>Сварете пилешкото месо в подсолена вода за 20 минути и запазете бульона.</li>
-        <li>В дълбок тиган разтопете маслото със зехтина и запържете брашното за 1 минута до златисто.</li>
-        <li>Постепенно добавяйте от топля пилешки бульон при непрекъснато бъркане с телена бъркалка, докато се получи гладък сос.</li>
-        <li>Добавете свареното пилешко месо и оставете да къкри 10 минути на слаб огън.</li>
-        <li>Застройте ястието: в купа разбийте жълтъка с киселото мляко и лимоновия сок. Добавете малко от топла сос към сместа, след което я върнете в тигана при постоянно бъркане.</li>
+        <li>Сварете пилешкото месо в подсолена вода.</li>
+        <li>Запържете брашното в маслото и постепенно добавяйте от бульона.</li>
+        <li>Добавете пилешкото, застройте с жълтъка, млякото и лимона.</li>
     </ol>
-    <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px;">
-        <strong>💡 Съвет от готвача:</strong> Не оставяйте фрикасето да завира силно след добавяне на застройката с жълтъка, за да не се пресече сосът.
-    </div>
     """
 ]
 
@@ -90,50 +77,133 @@ def generate_recipe():
                 )
                 if response and response.text:
                     recipe_body = response.text.replace("```html", "").replace("```", "").strip()
-                    print(f"✅ Успешно генериране с AI модел: {model_name}!")
+                    print(f"✅ Успешно генериране с {model_name}!")
                     break
             except Exception as e:
-                wait_time = attempt * 10
-                print(f"⚠️ Опит {attempt} за {model_name} върна грешка: {e}. Пауза {wait_time} сек...")
-                time.sleep(wait_time)
-        
+                time.sleep(10)
         if recipe_body:
             break
             
-    # Задействане на резервния вариант, ако Google AI сървърите са долу (503)
     if not recipe_body:
-        print("⚠️ Сървърите на Gemini са претоварени (503). Задейства се резервна кулинарна рецепта!")
+        print("⚠️ Използване на резервна рецепта...")
         recipe_body = random.choice(FALLBACK_RECIPES)
 
+    # Старият оригинален дизайн с кремов фон, търсачка и категории
     full_html = f"""<!DOCTYPE html>
 <html lang="bg">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GotvachBG — AI Рецепта на деня</title>
+    <title>Готвач БГ — Рецепти всеки ден</title>
     <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fdfbf7; color: #2b2d42; line-height: 1.7; margin: 0; padding: 0; }}
-        header {{ background-color: #d90429; color: white; text-align: center; padding: 2.5rem 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }}
-        header h1 {{ margin: 0; font-size: 2.8rem; font-weight: 700; }}
-        header p {{ margin-top: 0.5rem; opacity: 0.9; font-size: 1.1rem; }}
-        main {{ max-width: 800px; margin: 2rem auto 3rem auto; background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }}
-        h2 {{ color: #d90429; border-bottom: 2px solid #ef233c; padding-bottom: 0.5rem; font-size: 1.8rem; margin-top: 0; }}
-        ul, ol {{ padding-left: 1.5rem; }}
-        li {{ margin-bottom: 0.6rem; }}
-        footer {{ text-align: center; padding: 2rem; color: #8d99ae; font-size: 0.9rem; border-top: 1px solid #edf2f4; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f7f3ed;
+            color: #4a3b32;
+            margin: 0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 900px;
+            margin: 0 auto;
+        }}
+        .header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }}
+        .logo {{
+            font-size: 24px;
+            font-weight: bold;
+            color: #a9442a;
+            text-decoration: none;
+        }}
+        .search-box input {{
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid #e2d9cd;
+            background-color: #fbf9f5;
+            width: 180px;
+            font-size: 14px;
+        }}
+        .admin-link {{
+            color: #b56247;
+            text-decoration: none;
+            font-size: 14px;
+        }}
+        .filters {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }}
+        .filter-btn {{
+            background-color: #efe8dc;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 16px;
+            color: #6c5c53;
+            font-size: 13px;
+            cursor: pointer;
+        }}
+        .filter-btn.active {{
+            background-color: #b85d38;
+            color: white;
+        }}
+        .recipe-card {{
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+            margin-top: 20px;
+        }}
+        .recipe-card h2 {{
+            color: #b85d38;
+            margin-top: 0;
+            font-size: 24px;
+        }}
+        ul, ol {{ padding-left: 20px; }}
+        li {{ margin-bottom: 8px; }}
+        footer {{
+            text-align: center;
+            margin-top: 40px;
+            color: #9c8c83;
+            font-size: 13px;
+        }}
     </style>
 </head>
 <body>
-    <header>
-        <h1>🍳 GotvachBG</h1>
-        <p>Ежедневна кулинарна инспирация от AI</p>
-    </header>
-    <main>
-        {recipe_body}
-    </main>
-    <footer>
-        <p>© GotvachBG — Автоматично генерирано с Gemini AI</p>
-    </footer>
+    <div class="container">
+        <div class="header">
+            <a href="#" class="logo">Готвач БГ</a>
+            <div class="search-box">
+                <input type="text" placeholder="Търси рецепта...">
+            </div>
+            <a href="#" class="admin-link">Админ</a>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active">Всички кухни</button>
+            <button class="filter-btn">Агнешко</button>
+            <button class="filter-btn">Гарнитура</button>
+            <button class="filter-btn">Закуска</button>
+        </div>
+        <div class="filters">
+            <button class="filter-btn active">Всички диети</button>
+            <button class="filter-btn">кето</button>
+            <button class="filter-btn">без захар</button>
+            <button class="filter-btn">Вегетарианско</button>
+        </div>
+
+        <div class="recipe-card">
+            {recipe_body}
+        </div>
+
+        <footer>
+            <p>© GotvachBG — Автоматично генерирани AI рецепти</p>
+        </footer>
+    </div>
 </body>
 </html>"""
 
@@ -143,7 +213,7 @@ def generate_recipe():
     with open("latest_recipe.html", "w", encoding="utf-8") as f:
         f.write(full_html)
         
-    print("🎉 Страницата index.html е обновена успешно!")
+    print("🎉 Страницата index.html е обновена със стария изглед!")
 
 if __name__ == "__main__":
     generate_recipe()
