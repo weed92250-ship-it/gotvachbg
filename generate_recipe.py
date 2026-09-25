@@ -18,7 +18,6 @@ HISTORY_FILE = "recipes.json"
 
 os.makedirs(RECIPES_DIR, exist_ok=True)
 
-# Резервни ястия за първите дни (когато все още нямате натрупан архив)
 DEFAULT_RECIPES = [
     {
         "title": "Домашен качамак със сирене и масло",
@@ -42,26 +41,43 @@ DEFAULT_RECIPES = [
 
 FALLBACK_RECIPES = [
     {
-        "title": "Класически хрупкави триъгълни банички със сирене",
+        "title": "Класически хрупкави триъгълни банички със сирене и краве масло",
         "image_prompt": "Bulgarian cheese pastry banitsa golden crispy fresh baked food photography",
         "fallback_img": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=800&auto=format&fit=crop",
         "time": "45 мин",
         "content": """
-        <p><strong>Време:</strong> 45 мин | <strong>Порции:</strong> 4</p>
-        <h3>Необходими продукти:</h3>
+        <p class="recipe-meta">⏱️ <strong>Подготовка:</strong> 20 мин | ⏱️ <strong>Готвене:</strong> 25 мин | 🍽️ <strong>Порции:</strong> 4 | 📊 <strong>Сложност:</strong> Лесна</p>
+
+        <p class="recipe-intro">Няма нищо по-уютно от уханието на прясно изпечени триъгълни банички с домашно сирене и масло. Тази рецепта съчетава хрупкава коричка с изключително сочна и пухкава плънка — идеалната закуска за цялото семейство!</p>
+
+        <h3>🛒 Необходими продукти:</h3>
         <ul>
-            <li>1 пакет фини кори за баница (400 г)</li>
-            <li>300 г българско бяло сирене</li>
-            <li>3 яйца</li>
-            <li>100 г краве масло (разтопено)</li>
-            <li>4 с.л. кисело мляко с 1/2 ч.л. сода</li>
+            <li><strong>1 пакет (400 г)</strong> фини кори за баница (найнапред извадени на стайна температура)</li>
+            <li><strong>350 г</strong> българско бяло саламурено сирене (по-зряло за наситен вкус)</li>
+            <li><strong>3 бр.</strong> големи яйца (размер L)</li>
+            <li><strong>120 г</strong> качествено краве масло (разтопено)</li>
+            <li><strong>4 с.л.</strong> пълномаслено кисело мляко (3.6% или повече)</li>
+            <li><strong>1/2 ч.л.</strong> сода за хляб (за шупване на млякото)</li>
+            <li><strong>1 с.л.</strong> газирана вода или олио (за допълнителна хрупкавост)</li>
         </ul>
-        <h3>Начин на приготвяне:</h3>
+
+        <h3>👩‍🍳 Подробен начин на приготвяне:</h3>
         <ol>
-            <li>Разбъркайте сиренето, яйцата и киселото мляко със содата.</li>
-            <li>Нарежете корите на ленти (8-10 см), намажете с масло и поставете 1 с.л. плънка.</li>
-            <li>Сгънете на триъгълници и печете на 190°C за 20-25 минути.</li>
+            <li><strong>Приготвяне на сочната плънка:</strong> В дълбока купа разбийте яйцата. Добавете киселото мляко, в което предварително сте разбъркали содата да шупне. Натрошете сиренето на средно големи парчета (не на каша, за да се усеща) и разбъркайте хомогенно.</li>
+            <li><strong>Подготовка на корите:</strong> Разстелете пакета с кори върху чиста и суха повърхност. Нарежете ги по дължина на равни ленти с ширина около 8–10 см. За всяка баничка използвайте по 2 слепени ленти за по-добра плътност.</li>
+            <li><strong>Оформяне на триъгълниците:</strong> Вземете една двойна лента кори, намажете я леко с разтопено краве масло с помощта на четка. В единия край поставете 1 пълна супена лъжица от сиренената смес. Прегънете ъгъла по диагонал върху плънката, образувайки триъгълник. Продължете да сгъвате зигзагообразно до края на лентата.</li>
+            <li><strong>Подредба и намазване:</strong> Подредете оформените триъгълници в тава, покрита с хартия за печене. Намажете обилно всяка баничка отгоре с останалото разтопено масло (или разбита смес от жълтък и малко масло).</li>
+            <li><strong>Печене:</strong> Печете в предварително загрята фурна на 190°C (на горен и долен нагревател) за 20–25 минути, докато баничките придобият апетитен златисто-кафяв цвят и станат изключително хрупкави.</li>
         </ol>
+
+        <h3>💡 Тайните на шеф-готвача:</h3>
+        <ul>
+            <li><strong>Стайна температура:</strong> Никога не работете със студени кори директно от хладилника — те се чупят лесно. Извадете ги поне 20 минути предварително.</li>
+            <li><strong>За запазване на хрупкавостта:</strong> След изваждане от фурната НЕ покривайте баничките с кърпа, за да не омекнат от парата. Оставете ги да „поемат въздух“ на решетка.</li>
+        </ul>
+
+        <h3>🍷 С какво да сервираме:</h3>
+        <p>Поднесете ги горещи с чаша студена айрян, домашно кисело мляко или свеж доматен сок.</p>
         """
     }
 ]
@@ -73,6 +89,7 @@ CSS_STYLES = """
         color: #4a3b32;
         margin: 0;
         padding: 20px;
+        line-height: 1.6;
     }
     .container {
         max-width: 1100px;
@@ -85,7 +102,7 @@ CSS_STYLES = """
         margin-bottom: 25px;
     }
     .logo {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: bold;
         color: #a9442a;
         text-decoration: none;
@@ -120,29 +137,49 @@ CSS_STYLES = """
     }
     .main-layout {
         display: grid;
-        grid-template-columns: 1fr 310px;
+        grid-template-columns: 1fr 320px;
         gap: 25px;
         margin-top: 20px;
     }
     .recipe-card, .static-card {
         background: white;
         border-radius: 16px;
-        padding: 30px;
+        padding: 35px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.04);
     }
     .recipe-image {
         width: 100%;
-        height: 380px;
+        height: 400px;
         object-fit: cover;
         border-radius: 12px;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     .recipe-card h2, .static-card h1 {
         color: #b85d38;
         margin-top: 0;
+        font-size: 28px;
     }
-    ul, ol { padding-left: 20px; }
-    li { margin-bottom: 8px; }
+    .recipe-card h3 {
+        color: #8c3b23;
+        border-bottom: 2px solid #f7f3ed;
+        padding-bottom: 8px;
+        margin-top: 25px;
+    }
+    .recipe-meta {
+        background-color: #fdfaf6;
+        border-left: 4px solid #b85d38;
+        padding: 12px 18px;
+        border-radius: 0 8px 8px 0;
+        font-size: 14px;
+        margin-bottom: 20px;
+    }
+    .recipe-intro {
+        font-size: 16px;
+        font-style: italic;
+        color: #6c5c53;
+    }
+    ul, ol { padding-left: 22px; }
+    li { margin-bottom: 10px; }
     .sidebar {
         background: white;
         border-radius: 16px;
@@ -241,9 +278,9 @@ def save_history(history):
 
 def create_static_pages():
     pages = {
-        "about.html": ("За нас", "<h1>За Готвач БГ</h1><p>Готвач БГ е вашият ежедневен източник на кулинарно вдъхновение.</p>"),
-        "contacts.html": ("Контакти", "<h1>Свържете се с нас</h1><p>Пишете ни на: <strong>contact@gotvachbg.com</strong></p>"),
-        "privacy.html": ("Поверителност", "<h1>Политика за поверителност</h1><p>Този уебсайт цени вашата поверителност.</p>")
+        "about.html": ("За нас", "<h1>За Готвач БГ</h1><p>Готвач БГ е вашият ежедневен източник на богато обяснени и изкушаващи кулинарни рецепти.</p>"),
+        "contacts.html": ("Контакти", "<h1>Свържете се с нас</h1><p>Имате въпроси или кулинарни предложения? Пишете ни на: <strong>contact@gotvachbg.com</strong></p>"),
+        "privacy.html": ("Поверителност", "<h1>Политика за поверителност</h1><p>Този уебсайт цени вашата поверителност и използва стандартни бисквитки за подобряване на потребителското изживяване.</p>")
     }
     for filename, (title, content) in pages.items():
         html = f"""<!DOCTYPE html>
@@ -346,18 +383,21 @@ def build_full_page(title, main_image_url, fallback_backup_img, recipe_body, sid
 </html>"""
 
 def generate_recipe():
-    print("🍳 Gemini генерира новата рецепта...")
+    print("🍳 Gemini генерира новата много богата рецепта...")
     
     prompt = """
-    Ти си главен готвач. Създай нова, изкушаваща и вкусна рецепта за кулинарен сайт GotvachBG.
-    Включи:
-    - Заглавие на ястието (h2)
-    - Време за приготвяне и порции
-    - Необходими продукти (ul / li)
-    - Подробни стъпки за приготвяне (ol / li)
-    - Полезен съвет от готвача
-    
-    Върни САМО съдържанието на рецептата в HTML тагове, без markdown (```html).
+    Ти си кулинарен блогър и главен готвач. Напиши ИЗКЛЮЧИТЕЛНО ПОДРОБНА, богата, интересна и изкушаваща рецепта за кулинарен сайт GotvachBG.
+
+    Задължително включи следните секции в съответните HTML тагове:
+    1. <h2>Заглавие на ястието</h2>
+    2. <p class="recipe-meta">⏱️ <strong>Подготовка:</strong> ... мин | ⏱️ <strong>Готвене:</strong> ... мин | 🍽️ <strong>Порции:</strong> ... | 📊 <strong>Сложност:</strong> ...</p>
+    3. <p class="recipe-intro">Красив и апетитен анонс/история за ястието, защо е толкова вкусно и кога е подходящо да се приготви (2-3 изречения).</p>
+    4. <h3>🛒 Необходими продукти:</h3> (подробен списък с грамажи в ul / li, използвай bold за количествата)
+    5. <h3>👩‍🍳 Подробен начин на приготвяне:</h3> (5 до 7 описателни, детайлни стъпки в ol / li, обясни фазите на подготовка, температури и какво да се следи)
+    6. <h3>💡 Тайните на шеф-готвача:</h3> (2-3 малки трика за перфектен резултат в ul / li)
+    7. <h3>🍷 С какво да сервираме:</h3> (предложения за подходящи напитки, гарнитури или разядки)
+
+    Пиши изчерпателно и професионално! Върни САМО съдържанието в HTML тагове, без markdown (```html).
     """
     
     models_to_try = ['gemini-3.8-flash', 'gemini-3.6-flash']
@@ -390,17 +430,13 @@ def generate_recipe():
         title_text = title_match.group(1) if title_match else "Вкусна рецепта"
         image_prompt = f"delicious {title_text} food photography gourmet cinematic lighting 4k"
 
-    # Извличане на времето
-    time_match = re.search(r'Време:\s*([^|<]+)', recipe_body, re.IGNORECASE)
-    cooking_time = time_match.group(1).strip() if time_match else "30 мин"
+    time_match = re.search(r'Готвене:\s*([^|<]+)', recipe_body, re.IGNORECASE)
+    cooking_time = time_match.group(1).strip() if time_match else "45 мин"
 
     encoded_prompt = urllib.parse.quote(image_prompt)
     main_image_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){encoded_prompt}?width=800&height=450&nologo=true"
 
-    # Зареждане на историята
     history = load_history()
-
-    # Избор на рецепти за страничната лента (от качените до момента)
     sidebar_candidates = [r for r in history if r.get('title') != title_text]
     
     if len(sidebar_candidates) >= 3:
@@ -409,14 +445,11 @@ def generate_recipe():
         needed = 3 - len(sidebar_candidates)
         sidebar_items = sidebar_candidates + DEFAULT_RECIPES[:needed]
 
-    # Генериране на HTML
     full_html = build_full_page(title_text, main_image_url, fallback_backup_img, recipe_body, sidebar_items)
 
-    # 1. Записване на началната страница index.html
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(full_html)
 
-    # 2. Записване на архива за тази рецепта
     recipe_slug = slugify(title_text)
     recipe_file_path = os.path.join(RECIPES_DIR, f"{recipe_slug}.html")
     recipe_url = f"/{RECIPES_DIR}/{recipe_slug}.html"
@@ -424,7 +457,6 @@ def generate_recipe():
     with open(recipe_file_path, "w", encoding="utf-8") as f:
         f.write(full_html)
 
-    # 3. Обновяване на историята
     new_entry = {
         "title": title_text,
         "time": cooking_time,
@@ -436,7 +468,7 @@ def generate_recipe():
         json.dump(history, f, ensure_ascii=False, indent=2)
 
     create_static_pages()
-    print(f"🎉 Рецептата '{title_text}' бе качена на {recipe_url} и на началната страница!")
+    print(f"🎉 Новата дълга рецепта '{title_text}' е качена успешно!")
 
 if __name__ == "__main__":
     generate_recipe()
