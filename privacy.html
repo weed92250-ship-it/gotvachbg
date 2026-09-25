@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поверителност — Готвач БГ</title>
+    <style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #f7f3ed;
+        color: #4a3b32;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .logo {
+        font-size: 24px;
+        font-weight: bold;
+        color: #a9442a;
+        text-decoration: none;
+    }
+    .search-box input {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #e2d9cd;
+        background-color: #fbf9f5;
+        width: 220px;
+        font-size: 14px;
+        outline: none;
+    }
+    .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .filter-btn {
+        background-color: #efe8dc;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 16px;
+        color: #6c5c53;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .filter-btn.active {
+        background-color: #b85d38;
+        color: white;
+    }
+    .main-layout {
+        display: grid;
+        grid-template-columns: 1fr 310px;
+        gap: 25px;
+        margin-top: 20px;
+    }
+    .recipe-card, .static-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    }
+    .recipe-image {
+        width: 100%;
+        height: 380px;
+        object-fit: cover;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .recipe-card h2, .static-card h1 {
+        color: #b85d38;
+        margin-top: 0;
+    }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .sidebar {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        height: fit-content;
+    }
+    .sidebar h3 {
+        margin-top: 0;
+        color: #b85d38;
+        font-size: 18px;
+        border-bottom: 2px solid #f7f3ed;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+    }
+    .similar-item {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        align-items: center;
+    }
+    .similar-item img {
+        width: 70px;
+        height: 70px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+    .similar-item-info h4 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+    }
+    .similar-item-info h4 a {
+        color: #4a3b32;
+        text-decoration: none;
+    }
+    .similar-item-info span {
+        font-size: 12px;
+        color: #9c8c83;
+    }
+    footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e2d9cd;
+        color: #9c8c83;
+        font-size: 13px;
+    }
+    .footer-links a {
+        color: #6c5c53;
+        text-decoration: none;
+        margin: 0 10px;
+        font-size: 14px;
+    }
+    .footer-links .admin-link {
+        color: #b85d38;
+        font-weight: 600;
+    }
+    @media (max-width: 820px) {
+        .main-layout { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/" class="logo">Готвач БГ</a>
+        </div>
+        <div class="static-card">
+            <h1>Политика за поверителност</h1><p>Ние ценим вашата поверителност. Този уебсайт не събира лични данни и използва стандартни бисквитки за подобряване на потребителското изживяване.</p>
+        </div>
+        <footer>
+            <div class="footer-links">
+                <a href="/about.html">За нас</a> |
+                <a href="/contacts.html">Контакти</a> |
+                <a href="/privacy.html">Поверителност</a> |
+                <a href="/admin" class="admin-link">Админ</a>
+            </div>
+            <p>© GotvachBG. Всички права запазени.</p>
+        </footer>
+    </div>
+</body>
+</html>

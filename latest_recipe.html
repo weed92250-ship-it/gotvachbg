@@ -5,186 +5,143 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Готвач БГ — Рецепти всеки ден</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f7f3ed;
-            color: #4a3b32;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #a9442a;
-            text-decoration: none;
-        }
-        .search-box input {
-            padding: 8px 16px;
-            border-radius: 20px;
-            border: 1px solid #e2d9cd;
-            background-color: #fbf9f5;
-            width: 220px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .search-box input:focus {
-            border-color: #b85d38;
-        }
-        .filters {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .filter-btn {
-            background-color: #efe8dc;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 16px;
-            color: #6c5c53;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .filter-btn:hover {
-            background-color: #e2d8c7;
-        }
-        .filter-btn.active {
-            background-color: #b85d38;
-            color: white;
-        }
-
-        /* Лейаут с 2 колони */
-        .main-layout {
-            display: grid;
-            grid-template-columns: 1fr 310px;
-            gap: 25px;
-            margin-top: 20px;
-        }
-
-        .recipe-card {
-            background: white;
-            border-radius: 16px;
-            padding: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        }
-        .recipe-image {
-            width: 100%;
-            height: 380px;
-            object-fit: cover;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-        .recipe-card h2 {
-            color: #b85d38;
-            margin-top: 0;
-            font-size: 26px;
-        }
-        ul, ol { padding-left: 20px; }
-        li { margin-bottom: 8px; }
-
-        /* Странична лента */
-        .sidebar {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-            height: fit-content;
-        }
-        .sidebar h3 {
-            margin-top: 0;
-            color: #b85d38;
-            font-size: 18px;
-            border-bottom: 2px solid #f7f3ed;
-            padding-bottom: 10px;
-            margin-bottom: 18px;
-        }
-        .similar-item {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-            align-items: center;
-        }
-        .similar-item:last-child {
-            margin-bottom: 0;
-        }
-        .similar-item img {
-            width: 70px;
-            height: 70px;
-            border-radius: 10px;
-            object-fit: cover;
-        }
-        .similar-item-info h4 {
-            margin: 0 0 4px 0;
-            font-size: 14px;
-            line-height: 1.3;
-        }
-        .similar-item-info h4 a {
-            color: #4a3b32;
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .similar-item-info h4 a:hover {
-            color: #b85d38;
-        }
-        .similar-item-info span {
-            font-size: 12px;
-            color: #9c8c83;
-        }
-
-        #no-results {
-            display: none;
-            background: white;
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            color: #8c7b70;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e2d9cd;
-            color: #9c8c83;
-            font-size: 13px;
-        }
-        .footer-links {
-            margin-bottom: 10px;
-        }
-        .footer-links a {
-            color: #6c5c53;
-            text-decoration: none;
-            margin: 0 10px;
-            font-size: 14px;
-        }
-        .footer-links a:hover {
-            color: #b85d38;
-            text-decoration: underline;
-        }
-        .footer-links .admin-link {
-            color: #b85d38;
-            font-weight: 600;
-        }
-
-        /* Адаптивност за мобилни устройства */
-        @media (max-width: 820px) {
-            .main-layout {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #f7f3ed;
+        color: #4a3b32;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .logo {
+        font-size: 24px;
+        font-weight: bold;
+        color: #a9442a;
+        text-decoration: none;
+    }
+    .search-box input {
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #e2d9cd;
+        background-color: #fbf9f5;
+        width: 220px;
+        font-size: 14px;
+        outline: none;
+    }
+    .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+    .filter-btn {
+        background-color: #efe8dc;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 16px;
+        color: #6c5c53;
+        font-size: 13px;
+        cursor: pointer;
+    }
+    .filter-btn.active {
+        background-color: #b85d38;
+        color: white;
+    }
+    .main-layout {
+        display: grid;
+        grid-template-columns: 1fr 310px;
+        gap: 25px;
+        margin-top: 20px;
+    }
+    .recipe-card, .static-card {
+        background: white;
+        border-radius: 16px;
+        padding: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+    }
+    .recipe-image {
+        width: 100%;
+        height: 380px;
+        object-fit: cover;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    .recipe-card h2, .static-card h1 {
+        color: #b85d38;
+        margin-top: 0;
+    }
+    ul, ol { padding-left: 20px; }
+    li { margin-bottom: 8px; }
+    .sidebar {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+        height: fit-content;
+    }
+    .sidebar h3 {
+        margin-top: 0;
+        color: #b85d38;
+        font-size: 18px;
+        border-bottom: 2px solid #f7f3ed;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+    }
+    .similar-item {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        align-items: center;
+    }
+    .similar-item img {
+        width: 70px;
+        height: 70px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+    .similar-item-info h4 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+    }
+    .similar-item-info h4 a {
+        color: #4a3b32;
+        text-decoration: none;
+    }
+    .similar-item-info span {
+        font-size: 12px;
+        color: #9c8c83;
+    }
+    footer {
+        text-align: center;
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #e2d9cd;
+        color: #9c8c83;
+        font-size: 13px;
+    }
+    .footer-links a {
+        color: #6c5c53;
+        text-decoration: none;
+        margin: 0 10px;
+        font-size: 14px;
+    }
+    .footer-links .admin-link {
+        color: #b85d38;
+        font-weight: 600;
+    }
+    @media (max-width: 820px) {
+        .main-layout { grid-template-columns: 1fr; }
+    }
+</style>
 </head>
 <body>
     <div class="container">
@@ -211,29 +168,24 @@
         <div class="main-layout">
             <div class="main-content">
                 <div class="recipe-card" id="recipeCard">
-                    <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Bulgarian%20cheese%20pastry%20banitsa%20golden%20crispy%20fresh%20baked%20food%20photography?width=800&height=450&nologo=true" alt="Снимка на ястието" class="recipe-image">
-                    <h2>Класически хрупкави триъгълни банички със сирене</h2>
-        <p><strong>Време:</strong> 45 мин | <strong>Порции:</strong> 4</p>
+                    <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Chicken%20fricassee%20creamy%20lemon%20sauce%20food%20photography%20gourmet?width=800&height=450&nologo=true" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=800&auto=format&fit=crop';" alt="Снимка на ястието" class="recipe-image">
+                    <h2>Ароматно пилешко фрикасе с маслено-лимонов сос</h2>
+        <p><strong>Време:</strong> 50 мин | <strong>Порции:</strong> 4</p>
         <h3>Необходими продукти:</h3>
         <ul>
-            <li>1 пакет фини кори за баница (400 г)</li>
-            <li>300 г българско бяло сирене</li>
-            <li>3 яйца</li>
-            <li>100 г краве масло (разтопено)</li>
-            <li>4 с.л. кисело мляко с 1/2 ч.л. сода</li>
+            <li>600 г пилешко филе</li>
+            <li>50 г краве масло + 2 с.л. зехтин</li>
+            <li>2 с.л. брашно</li>
+            <li>1 жълтък + 3 с.л. кисело мляко</li>
+            <li>Сок от 1/2 лимон</li>
         </ul>
         <h3>Начин на приготвяне:</h3>
         <ol>
-            <li>Разбъркайте сиренето, яйцата и киселото мляко със содата.</li>
-            <li>Нарежете корите на ленти (8-10 см), намажете с масло и поставете 1 с.л. плънка.</li>
-            <li>Сгънете на триъгълници и печете на 190°C за 20-25 минути.</li>
+            <li>Сварете пилешкото месо в подсолена вода.</li>
+            <li>Запържете брашното в маслото и постепенно добавяйте от бульона.</li>
+            <li>Добавете пилешкото, застройте с жълтъка, млякото и лимона.</li>
         </ol>
         
-                </div>
-
-                <div id="no-results">
-                    <h3>Няма намерена рецепта по избраните критерии</h3>
-                    <p>Опитайте с друга дума в търсачката или изберете "Всички".</p>
                 </div>
             </div>
 
@@ -241,15 +193,7 @@
                 <h3>Подобни рецепти</h3>
                 
         <div class="similar-item">
-            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Spinach%20cheese%20pastry%20rolls%20golden%20food%20photography?width=160&height=160&nologo=true" alt="Хрупкави банички със спанак и извара">
-            <div class="similar-item-info">
-                <h4><a href="#">Хрупкави банички със спанак и извара</a></h4>
-                <span>⏱️ 45 мин</span>
-            </div>
-        </div>
-        
-        <div class="similar-item">
-            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Shopska%20salad%20fresh%20tomatoes%20cucumber%20feta%20cheese%20food%20photography?width=160&height=160&nologo=true" alt="Традиционна шопска салата">
+            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Shopska%20salad%20fresh%20tomatoes%20cucumber%20feta%20cheese%20food%20photography?width=160&height=160&nologo=true" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=200&auto=format&fit=crop';" alt="Традиционна шопска салата">
             <div class="similar-item-info">
                 <h4><a href="#">Традиционна шопска салата</a></h4>
                 <span>⏱️ 15 мин</span>
@@ -257,10 +201,18 @@
         </div>
         
         <div class="similar-item">
-            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Bulgarian%20kachamak%20polenta%20cheese%20butter%20food%20photography?width=160&height=160&nologo=true" alt="Домашен качамак със сирене и масло">
+            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Bulgarian%20kachamak%20polenta%20cheese%20butter%20food%20photography?width=160&height=160&nologo=true" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop';" alt="Домашен качамак със сирене и масло">
             <div class="similar-item-info">
                 <h4><a href="#">Домашен качамак със сирене и масло</a></h4>
                 <span>⏱️ 25 мин</span>
+            </div>
+        </div>
+        
+        <div class="similar-item">
+            <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Spinach%20cheese%20pastry%20rolls%20golden%20food%20photography?width=160&height=160&nologo=true" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1601050690597-df0568f70950?w=200&auto=format&fit=crop';" alt="Хрупкави банички със спанак и извара">
+            <div class="similar-item-info">
+                <h4><a href="#">Хрупкави банички със спанак и извара</a></h4>
+                <span>⏱️ 45 мин</span>
             </div>
         </div>
         
@@ -277,43 +229,5 @@
             <p>© GotvachBG. Всички права запазени.</p>
         </footer>
     </div>
-
-    <script>
-        const searchInput = document.getElementById('searchInput');
-        const recipeCard = document.getElementById('recipeCard');
-        const noResults = document.getElementById('no-results');
-        const filterButtons = document.querySelectorAll('.filter-btn');
-
-        filterButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const siblingButtons = this.parentElement.querySelectorAll('.filter-btn');
-                siblingButtons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                filterRecipe();
-            });
-        });
-
-        searchInput.addEventListener('input', filterRecipe);
-
-        function filterRecipe() {
-            const query = searchInput.value.toLowerCase().trim();
-            const textContent = recipeCard.innerText.toLowerCase();
-            
-            const activeKitchen = document.querySelector('#kitchenFilters .filter-btn.active').textContent.toLowerCase();
-            const activeDiet = document.querySelector('#dietFilters .filter-btn.active').textContent.toLowerCase();
-
-            let matchesSearch = query === '' || textContent.includes(query);
-            let matchesKitchen = activeKitchen.includes('всички') || textContent.includes(activeKitchen);
-            let matchesDiet = activeDiet.includes('всички') || textContent.includes(activeDiet);
-
-            if (matchesSearch && matchesKitchen && matchesDiet) {
-                recipeCard.style.display = 'block';
-                noResults.style.display = 'none';
-            } else {
-                recipeCard.style.display = 'none';
-                noResults.style.display = 'block';
-            }
-        }
-    </script>
 </body>
 </html>
