@@ -24,29 +24,33 @@ def generate_recipe():
     Върни САМО съдържанието на рецептата в HTML тагове, без markdown (```html).
     """
     
-    # Списък с модели: ако първият е пренатоварен (503) или е надхвърлил лимита (429), ползва следващия
-    models_to_try = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+    # Актуални и поддържани модели от Google AI API
+    models_to_try = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.0-flash']
     recipe_body = None
     
     for model_name in models_to_try:
         print(f"Опит с модел {model_name}...")
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-            )
-            if response and response.text:
-                recipe_body = response.text.replace("```html", "").replace("```", "").strip()
-                print(f"✅ Успешно генериране с {model_name}!")
-                break
-        except Exception as e:
-            print(f"⚠️ Моделът {model_name} върна грешка: {e}")
-            time.sleep(5)
+        # Повторни опити (3 пъти) за всеки модел при моментна пренатовареност (503)
+        for attempt in range(1, 4):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                if response and response.text:
+                    recipe_body = response.text.replace("```html", "").replace("```", "").strip()
+                    print(f"✅ Успешно генериране с {model_name}!")
+                    break
+            except Exception as e:
+                print(f"⚠️ Опит {attempt} за {model_name} върна грешка: {e}")
+                time.sleep(7)
+        
+        if recipe_body:
+            break
             
     if not recipe_body:
         raise RuntimeError("Неуспешно генериране с нито един от наличните модели.")
 
-    # Пълен HTML шаблон с модерен дизайн
     full_html = f"""<!DOCTYPE html>
 <html lang="bg">
 <head>
