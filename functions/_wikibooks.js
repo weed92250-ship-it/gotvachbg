@@ -120,6 +120,24 @@ async function fetchWikitext(title) {
   return '';
 }
 
+async function fetchWikitextBatch(titles) {
+  const data = await apiQuery({
+    action: 'query',
+    prop: 'revisions',
+    rvprop: 'content',
+    rvslots: 'main',
+    titles: titles.join('|')
+  });
+  const result = new Map();
+  for (const page of (data && data.query && data.query.pages) || []) {
+    const rev = page.revisions && page.revisions[0];
+    const slot = rev && rev.slots && rev.slots.main;
+    const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
+    if (page.title && typeof text === 'string') result.set(page.title, text);
+  }
+  return result;
+}
+
 async function listRecipeTitles() {
   const wikitext = await fetchWikitext(INDEX_TITLE);
   const titles = [];
@@ -157,58 +175,71 @@ export async function runWikibooksImport(env, limit = 10) {
   let checked = 0, added = 0, skipped = 0, failed = 0;
   const errors = [];
 
-  for (const title of titles) {
-    if (added >= limit) break;
-    checked++;
+  for (let offset = 0; offset < titles.length && added < limit; offset += 20) {
+    const batchTitles = titles.slice(offset, offset + 20);
+    let wikitexts;
     try {
-      if (checked > 1) await sleep(800);
-      const sourceId = slugId(title);
-      const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?').bind(sourceId).first();
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      const wikitext = await fetchWikitext(title);
-      const recipe = parseRecipe(title, wikitext);
-      if (!recipe) {
-        skipped++;
-        continue;
-      }
-
-      const id = 'wb' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
-      const date = new Date().toISOString().slice(0, 10);
-      const excerpt = recipe.instructions.slice(0, 180);
-      const sourceUrl = SOURCE_BASE + encodeURIComponent(title.replace(/ /g, '_'));
-
-      await env.DB.prepare(
-        `INSERT INTO recipes
-          (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured, time)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(
-        id,
-        sourceId,
-        recipe.title,
-        null,
-        excerpt,
-        JSON.stringify(recipe.ingredients),
-        recipe.instructions,
-        'Българска кухня',
-        'Българска',
-        dietTagsForIngredients(recipe.ingredients).join(','),
-        null,
-        null,
-        'Уикикниги – Готварска книга',
-        date,
-        0,
-        recipe.time || null
-      ).run();
-
-      added++;
+      wikitexts = await fetchWikitextBatch(batchTitles);
     } catch (err) {
-      failed++;
-      errors.push(title + ': ' + String(err && err.message ? err.message : err));
+      failed += batchTitles.length;
+      errors.push('Batch ' + offset + ': ' + String(err && err.message ? err.message : err));
+      await sleep(3000);
+      continue;
     }
+
+    for (const title of batchTitles) {
+      if (added >= limit) break;
+      checked++;
+      try {
+        const sourceId = slugId(title);
+        const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?').bind(sourceId).first();
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const wikitext = wikitexts.get(title) || '';
+        const recipe = parseRecipe(title, wikitext);
+        if (!recipe) {
+          skipped++;
+          continue;
+        }
+
+        const id = 'wb' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
+        const date = new Date().toISOString().slice(0, 10);
+        const excerpt = recipe.instructions.slice(0, 180);
+
+        await env.DB.prepare(
+          `INSERT INTO recipes
+            (id, source_id, title, title_en, excerpt, ingredients, instructions, category, area, diet_tags, image, youtube, author, date, featured, time)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          id,
+          sourceId,
+          recipe.title,
+          null,
+          excerpt,
+          JSON.stringify(recipe.ingredients),
+          recipe.instructions,
+          'Българска кухня',
+          'Българска',
+          dietTagsForIngredients(recipe.ingredients).join(','),
+          null,
+          null,
+          'Уикикниги – Готварска книга',
+          date,
+          0,
+          recipe.time || null
+        ).run();
+
+        added++;
+      } catch (err) {
+        failed++;
+        errors.push(title + ': ' + String(err && err.message ? err.message : err));
+      }
+    }
+
+    if (offset + 20 < titles.length && added < limit) await sleep(1500);
   }
 
   return {
