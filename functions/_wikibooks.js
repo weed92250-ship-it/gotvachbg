@@ -70,13 +70,41 @@ function parseTime(wikitext) {
   return value && !/^X+|^$/i.test(value) ? value : '';
 }
 
+function extractSectionLoose(wikitext, starts, ends) {
+  const lines = String(wikitext || '').split(/\\r?\\n/);
+  const isHeading = line => /^\\s*=+\\s*.*?\\s*=+\\s*$/.test(line);
+  const headingName = line => line.replace(/^\\s*=+\\s*/, '').replace(/\\s*=+\\s*$/, '').trim();
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (isHeading(lines[i]) && starts.some(x => headingName(lines[i]).toLowerCase() === x.toLowerCase())) {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start < 0) return '';
+  const out = [];
+  for (let i = start; i < lines.length; i++) {
+    if (isHeading(lines[i]) && ends.some(x => headingName(lines[i]).toLowerCase() === x.toLowerCase())) break;
+    out.push(lines[i]);
+  }
+  return out.join('\\n');
+}
+
 function parseRecipe(title, wikitext) {
-  const ingredientsSection = sectionBetween(
+  const ingredientsSection = extractSectionLoose(
+    wikitext,
+    ['Продукти', 'Необходими продукти'],
+    ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+  ) || sectionBetween(
     wikitext,
     ['Продукти', 'Необходими продукти'],
     ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
   );
-  const prepSection = sectionBetween(
+  const prepSection = extractSectionLoose(
+    wikitext,
+    ['Приготвяне', 'Начин на приготвяне'],
+    ['Източници', 'Други', 'Бележка', 'Забележка']
+  ) || sectionBetween(
     wikitext,
     ['Приготвяне', 'Начин на приготвяне'],
     ['Източници', 'Други', 'Бележка', 'Забележка']
