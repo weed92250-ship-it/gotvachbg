@@ -81,5 +81,10 @@ export function rowToRecipe(r) {
     url: r.url || ('/recipe/' + r.id),
     img: r.image || null,
     time: r.time || null,
+    sourceUrl: r.source_id && r.source_id.startsWith('wikibooks:')
+      ? 'https://bg.wikibooks.org/wiki/' + encodeURIComponent(r.source_id.slice('wikibooks:'.length).replace(/ /g, '_'))
+      : null,
+    sourceLicense: r.source_id && r.source_id.startsWith('wikibooks:') ? 'CC BY-SA 4.0' : null,
+    sourceLicenseUrl: r.source_id && r.source_id.startsWith('wikibooks:') ? 'https://creativecommons.org/licenses/by-sa/4.0/' : null,
   };
 }
