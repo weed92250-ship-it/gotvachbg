@@ -22,45 +22,29 @@ function cleanWikiText(value) {
 
 function parseIngredients(section) {
   const ingredients = [];
-  for (const raw of section.split(/\r?\n/)) {
-    if (!/^\s*\*+\s+/.test(raw)) continue;
-    let value = cleanWikiText(raw.replace(/^\s*\*+\s+/, ''));
-    if (!value) continue;
-    if (/^за\s+.+:\s*$/i.test(value)) continue;
-    if (/^необходими продукти:?$/i.test(value)) continue;
-    value = value.replace(/[;]+$/, '').trim();
+  const text = String(section || '')
+    .replace(/^-{3,}\s*/gm, '')
+    .trim();
 
-    let measure = '';
-    let name = value;
-    const dash = value.match(/^(.+?)\s+[–—-]\s+(.+)$/);
-    if (dash) {
-      measure = dash[1].trim();
-      name = dash[2].trim();
-    } else {
-      const leading = value.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|половин|половина|няколко|една|един|едно)(?:\s+[^,;]+?){0,3})\s+(.+)$/i);
-      if (leading) {
-        measure = leading[1].trim();
-        name = leading[2].trim();
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const values = /^\*+\s+/.test(line) ? [line.replace(/^\*+\s+/, '')] : [line];
+    for (let value of values) {
+      value = cleanWikiText(value).trim();
+      if (!value || /^за\s+.+:\s*$/i.test(value) || /^необходими продукти:?$/i.test(value)) continue;
+      for (const part of value.split(/[;,](?=\s|$)/)) {
+        const item = part.trim();
+        if (!item || item.length < 2) continue;
+        let measure = '', name = item;
+        const dash = item.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+        if (dash) { measure = dash[1].trim(); name = dash[2].trim(); }
+        else {
+          const leading = item.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\s*\d+)?)?|½|1\/2|половин|половина|няколко|една|един|едно)(?:\s+[^,;]+?){0,3})\s+(.+)$/i);
+          if (leading) { measure = leading[1].trim(); name = leading[2].trim(); }
+        }
+        if (name && name.length > 1) ingredients.push({ name, measure });
       }
-    }
-    if (name && name.length > 1) ingredients.push({ name, measure });
-  }
-  if (ingredients.length === 0) {
-    const fallback = cleanWikiText(section)
-      .replace(/^\s*Продукти\s*:?\s*/i, '')
-      .replace(/^\s*Необходими продукти\s*:?\s*/i, '')
-      .replace(/^-{3,}$/gm, '')
-      .trim();
-    for (const raw of fallback.split(/[;,\n]+/)) {
-      const value = raw.trim();
-      if (!value || value.length < 2) continue;
-      const dash = value.match(/^(.+?)\s+[–—-]\s+(.+)$/);
-      let measure = '', name = value;
-      if (dash) {
-        measure = dash[1].trim();
-        name = dash[2].trim();
-      }
-      if (name && name.length > 1) ingredients.push({ name, measure });
     }
   }
   return ingredients;
