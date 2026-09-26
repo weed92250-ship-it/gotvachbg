@@ -365,10 +365,48 @@ async function apiQuery(params, attempts = 4) {
 }
 
 async function fetchWikitext(title) {
-  const data = await apiQuery({ action: 'parse', page: title, prop: 'wikitext' });
-  if (!data || !data.parse) return '';
-  if (typeof data.parse.wikitext === 'string') return data.parse.wikitext;
-  if (data.parse.wikitext && typeof data.parse.wikitext['*'] === 'string') return data.parse.wikitext['*'];
+  // Prefer query/revisions because it exposes normalized titles and redirects
+  // more reliably for older Wikibooks pages than action=parse.
+  const variants = titleVariants(title);
+  for (const variant of variants) {
+    try {
+      const data = await apiQuery({
+        action: 'query',
+        prop: 'revisions',
+        rvprop: 'content',
+        rvslots: 'main',
+        redirects: 1,
+        titles: variant
+      });
+
+      const pages = (data && data.query && data.query.pages) || [];
+      for (const page of pages) {
+        const rev = page.revisions && page.revisions[0];
+        const slot = rev && rev.slots && rev.slots.main;
+        const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
+        if (typeof text === 'string' && text.trim()) {
+          const redirect = text.match(/^\\s*#redirect\\s*\\[\\[([^\\]|#]+)(?:#[^\\]|]*)?(?:\\|[^\\]]+)?\\]\\]/i);
+          if (redirect) {
+            const target = redirect[1].trim();
+            try {
+              const targetText = await fetchWikitext(target);
+              if (targetText) return targetText;
+            } catch (_) {}
+          }
+          return text;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Final fallback to action=parse for pages that do not expose revisions
+  // through the normal query response.
+  try {
+    const data = await apiQuery({ action: 'parse', page: title, prop: 'wikitext' });
+    if (!data || !data.parse) return '';
+    if (typeof data.parse.wikitext === 'string') return data.parse.wikitext;
+    if (data.parse.wikitext && typeof data.parse.wikitext['*'] === 'string') return data.parse.wikitext['*'];
+  } catch (_) {}
   return '';
 }
 
