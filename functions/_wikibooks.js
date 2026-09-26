@@ -161,9 +161,10 @@ function extractIngredientsFallback(wikitext) {
   const beforePrep = source.slice(0, prepIndex);
   const productMatch = beforePrep.match(/Продукти\s*:?/i);
   if (productMatch) {
-    return beforePrep.slice(productMatch.index + productMatch[0].length)
+    const section = beforePrep.slice(productMatch.index + productMatch[0].length);
+    return section
+      .split(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:/i)[0]
       .replace(/^\s*=+\s*\n?/g, '')
-      .replace(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi, '')
       .trim();
   }
 
@@ -177,13 +178,13 @@ function extractIngredientsFallback(wikitext) {
 
 function extractFlatPrep(wikitext) {
   const source = String(wikitext || '').replace(/\r/g, '');
-  const matches = [...source.matchAll(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi)];
+  const m = source.match(/(?:^|\n)\s*ен\.\s*ст\.\s*:[^\n]*\n([\s\S]*)/i);
+  if (m) return m[1].trim();
+
+  const matches = [...source.matchAll(/(?:^|\n)\s*(?:порции|време)\s*:[^\n]*/gi)];
   if (!matches.length) return '';
   const last = matches[matches.length - 1];
-  const from = last.index + last[0].length;
-  return source.slice(from)
-    .replace(/^\s+/, '')
-    .trim();
+  return source.slice(last.index + last[0].length).trim();
 }
 
 function extractInlinePrep(wikitext) {
