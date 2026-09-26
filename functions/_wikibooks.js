@@ -372,54 +372,89 @@ async function fetchWikitext(title) {
   return '';
 }
 
+function titleVariants(title) {
+  const value = String(title || '').trim();
+  const variants = [value];
+  if (value.includes(': ')) variants.push(value.replace(/:\s+/g, ':'));
+  else variants.push(value.replace(/:/g, ': '));
+  return [...new Set(variants)];
+}
+
+function normalizeTitleKey(title) {
+  return String(title || '')
+    .replace(/\s+/g, ' ')
+    .replace(/:\s*/g, ':')
+    .trim()
+    .toLowerCase();
+}
+
 async function fetchWikitextBatch(titles) {
+  const requested = [...new Set(titles.flatMap(titleVariants))];
   const data = await apiQuery({
     action: 'query',
     prop: 'revisions',
     rvprop: 'content',
     rvslots: 'main',
-    titles: titles.join('|')
+    redirects: 1,
+    titles: requested.join('|')
   });
   const result = new Map();
   const redirects = [];
+  const requestedKeys = new Map();
+
+  for (const title of titles) {
+    for (const variant of titleVariants(title)) {
+      requestedKeys.set(normalizeTitleKey(variant), title);
+    }
+  }
 
   for (const page of (data && data.query && data.query.pages) || []) {
     const rev = page.revisions && page.revisions[0];
     const slot = rev && rev.slots && rev.slots.main;
     const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
+    const requestedTitle = requestedKeys.get(normalizeTitleKey(page.title));
+
     if (page.title && typeof text === 'string') {
       const redirect = text.match(/^\s*#redirect\s*\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/i);
       if (redirect) {
-        redirects.push({ title: page.title, target: redirect[1].trim() });
+        redirects.push({
+          title: requestedTitle || page.title,
+          target: redirect[1].trim()
+        });
       } else {
-        result.set(page.title, text);
+        result.set(requestedTitle || page.title, text);
       }
     }
   }
 
   for (const item of redirects) {
+    if (result.has(item.title)) continue;
     try {
       const targetText = await fetchWikitext(item.target);
       if (targetText) result.set(item.title, targetText);
     } catch (_) {}
   }
 
-  // Retry every title that did not yield batch content individually.
+  // Retry missing titles with both colon-spacing variants. Some Wikibooks links
+  // differ only by "Готварска книга:" vs "Готварска книга: ".
   for (const title of titles) {
-    if (!result.has(title) && !redirects.some(x => x.title === title)) {
+    if (result.has(title)) continue;
+    for (const variant of titleVariants(title)) {
       try {
-        const text = await fetchWikitext(title);
-        if (text) result.set(title, text);
+        const text = await fetchWikitext(variant);
+        if (text) {
+          result.set(title, text);
+          break;
+        }
       } catch (_) {}
     }
   }
 
-  // Resolve redirects individually as well.
   for (const item of redirects) {
     if (!result.has(item.title)) {
       try {
-        const targetText = await fetchWikitext(item.target);
-        if (targetText) result.set(item.title, targetText);
+        const text = await fetchWikitext(item.target);
+        if (text) result.set(item.title, text);
       } catch (_) {}
     }
   }
