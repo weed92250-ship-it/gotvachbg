@@ -261,7 +261,7 @@ function extractIngredientsFromProse(text) {
     'хляб', 'лимон', 'червен пипер', 'чили', 'оцет'
   ]) {
     const escaped = word.replace(/\s+/g, '\\s+');
-    if (new RegExp('\\b' + escaped + '\\b', 'i').test(s)) add(word);
+    if (new RegExp('(?:^|[^А-Яа-яA-Za-z])' + escaped + '(?=$|[^А-Яа-яA-Za-z])', 'i').test(s)) add(word);
   }
 
   return found;
@@ -381,12 +381,29 @@ async function fetchWikitextBatch(titles) {
     titles: titles.join('|')
   });
   const result = new Map();
+  const redirects = [];
+
   for (const page of (data && data.query && data.query.pages) || []) {
     const rev = page.revisions && page.revisions[0];
     const slot = rev && rev.slots && rev.slots.main;
     const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
-    if (page.title && typeof text === 'string') result.set(page.title, text);
+    if (page.title && typeof text === 'string') {
+      const redirect = text.match(/^\s*#redirect\s*\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/i);
+      if (redirect) {
+        redirects.push({ title: page.title, target: redirect[1].trim() });
+      } else {
+        result.set(page.title, text);
+      }
+    }
   }
+
+  for (const item of redirects) {
+    try {
+      const targetText = await fetchWikitext(item.target);
+      if (targetText) result.set(item.title, targetText);
+    } catch (_) {}
+  }
+
   return result;
 }
 
