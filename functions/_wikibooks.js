@@ -121,7 +121,18 @@ function parseRecipe(title, wikitext) {
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-  if (ingredients.length < 2 || instructions.length < 80) return null;
+  if (ingredients.length < 2 || instructions.length < 80) {
+    return {
+      error: ingredients.length < 2 ? 'no_ingredients' : 'short_instructions',
+      diagnostic: {
+        wikitextChars: String(wikitext || '').length,
+        ingredientsSectionChars: ingredientsSection.length,
+        prepSectionChars: prepSection.length,
+        ingredientCount: ingredients.length,
+        instructionChars: instructions.length
+      }
+    };
+  }
 
   return {
     title: title.replace(/^Готварска книга:\s*/i, '').trim(),
@@ -215,6 +226,8 @@ export async function runWikibooksImport(env, limit = 10) {
   const titles = await listRecipeTitles();
   let checked = 0, added = 0, skipped = 0, failed = 0;
   const errors = [];
+  const skipReasons = { already_exists: 0, no_wikitext: 0, no_ingredients: 0, short_instructions: 0 };
+  const diagnostics = [];
 
   for (let offset = 0; offset < titles.length && added < limit; offset += 20) {
     const batchTitles = titles.slice(offset, offset + 20);
@@ -236,13 +249,22 @@ export async function runWikibooksImport(env, limit = 10) {
         const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?').bind(sourceId).first();
         if (existing) {
           skipped++;
+          skipReasons.already_exists++;
           continue;
         }
 
         const wikitext = wikitexts.get(title) || '';
-        const recipe = parseRecipe(title, wikitext);
-        if (!recipe) {
+        if (!wikitext) {
           skipped++;
+          skipReasons.no_wikitext++;
+          if (diagnostics.length < 5) diagnostics.push({ title, reason: 'no_wikitext', wikitextChars: 0 });
+          continue;
+        }
+        const recipe = parseRecipe(title, wikitext);
+        if (recipe && recipe.error) {
+          skipped++;
+          skipReasons[recipe.error] = (skipReasons[recipe.error] || 0) + 1;
+          if (diagnostics.length < 5) diagnostics.push({ title, reason: recipe.error, ...recipe.diagnostic });
           continue;
         }
 
@@ -292,6 +314,8 @@ export async function runWikibooksImport(env, limit = 10) {
     skipped,
     failed,
     remaining: Math.max(0, titles.length - checked),
-    errors
+    errors,
+    skipReasons,
+    diagnostics
   };
 }
