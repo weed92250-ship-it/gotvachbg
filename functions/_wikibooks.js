@@ -245,7 +245,12 @@ function parseRecipe(title, wikitext) {
         ingredientsSectionChars: ingredientsSection.length,
         prepSectionChars: prepSection.length,
         ingredientCount: ingredients.length,
-        instructionChars: instructions.length
+        instructionChars: instructions.length,
+        rawLines: String(wikitext || '').replace(/\r/g, '').split('\n').slice(0, 40),
+        markerLines: String(wikitext || '').replace(/\r/g, '').split('\n')
+          .map((line, index) => ({ index: index + 1, line, cleaned: cleanWikiText(line) }))
+          .filter(x => /продукт|порци|време|ен\.\s*ст\.|приготвяне|източници|бележка/i.test(x.line))
+          .slice(0, 30)
       }
     };
   }
