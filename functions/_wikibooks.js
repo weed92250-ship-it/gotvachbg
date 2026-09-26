@@ -20,6 +20,34 @@ function cleanWikiText(value) {
     .trim();
 }
 
+function parseIngredients(section) {
+  const ingredients = [];
+  for (const raw of section.split(/\r?\n/)) {
+    if (!/^\s*\*+\s+/.test(raw)) continue;
+    let value = cleanWikiText(raw.replace(/^\s*\*+\s+/, ''));
+    if (!value) continue;
+    if (/^за\s+.+:\s*$/i.test(value)) continue;
+    if (/^необходими продукти:?$/i.test(value)) continue;
+    value = value.replace(/[;]+$/, '').trim();
+
+    let measure = '';
+    let name = value;
+    const dash = value.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+    if (dash) {
+      measure = dash[1].trim();
+      name = dash[2].trim();
+    } else {
+      const leading = value.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|половин|половина|няколко|една|един|едно)(?:\s+[^,;]+?){0,3})\s+(.+)$/i);
+      if (leading) {
+        measure = leading[1].trim();
+        name = leading[2].trim();
+      }
+    }
+    if (name && name.length > 1) ingredients.push({ name, measure });
+  }
+  return ingredients;
+}
+
 function sectionBetween(wikitext, startNames, endNames) {
   const starts = startNames.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&')).join('|');
   const ends = endNames.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&')).join('|');
