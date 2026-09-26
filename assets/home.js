@@ -1,48 +1,15 @@
 const fallbackImage='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1000&auto=format&fit=crop&q=85';
-const grid=document.querySelector('#recipeGrid');
-const searchPanel=document.querySelector('#searchPanel');
-const searchGrid=document.querySelector('#searchGrid');
-const searchStatus=document.querySelector('#searchStatus');
-const input=document.querySelector('#siteSearch');
-const form=document.querySelector('#searchForm');
-let recipes=[];
-
-function safeImage(src){return src&&src.startsWith('http')&&!src.includes('pollinations.ai')&&!src.includes('[https://')?src:fallbackImage}
-function normalize(r){
-  return {
-    ...r,
-    img:r.img||r.image||fallbackImage,
-    url:r.url||('/recipe/'+r.id),
-    excerpt:r.excerpt||'Домашна рецепта с ясни стъпки и продукти.',
-    category:r.category||'Рецепта',
-    area:r.area||'Домашна',
-    time:r.time||'Време според рецептата',
-    ingredients:Array.isArray(r.ingredients)?r.ingredients:[]
-  }
-}
-function card(recipe){
-  const title=String(recipe.title||'Рецепта').replace(/"/g,'&quot;');
-  const text=String(recipe.excerpt||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return '<article class="card"><img loading="lazy" src="'+safeImage(recipe.img)+'" alt="'+title+'"><div class="card-body"><span class="tag">'+recipe.category+'</span><h3><a href="'+recipe.url+'">'+recipe.title+'</a></h3><p>'+text+'</p><div class="meta"><span>⏱ '+recipe.time+'</span><span>🌍 '+recipe.area+'</span></div></div></article>'
-}
-function render(list,target){target.innerHTML=list.length?list.map(card).join(''):'<div class="empty">Няма рецепти за това търсене.</div>'}
-function search(q){
-  const term=q.trim().toLocaleLowerCase('bg');
-  const list=!term?recipes:recipes.filter(r=>[r.title,r.excerpt,r.category,r.area,r.ingredients.map(x=>x.name||'').join(' ')].join(' ').toLocaleLowerCase('bg').includes(term));
-  searchPanel.hidden=false;
-  searchStatus.textContent=term?'Намерени рецепти: '+list.length:'Всички налични рецепти: '+list.length;
-  render(list,searchGrid);
-  searchPanel.scrollIntoView({behavior:'smooth',block:'start'})
-}
+const grid=document.querySelector('#recipeGrid'),searchPanel=document.querySelector('#searchPanel'),searchGrid=document.querySelector('#searchGrid'),searchStatus=document.querySelector('#searchStatus'),input=document.querySelector('#siteSearch'),form=document.querySelector('#searchForm'),filterBox=document.querySelector('#homeFilters');
+let recipes=[],activeCategory='Всички',maxTime=0;
+const safeImage=s=>s&&s.startsWith('http')&&!s.includes('pollinations.ai')&&!s.includes('[https://')?s:fallbackImage;
+const normalize=r=>({...r,img:r.img||r.image||fallbackImage,url:r.url||('/recipe/'+r.id),excerpt:r.excerpt||'Домашна рецепта с ясни стъпки и продукти.',category:r.category||'Рецепта',area:r.area||'Домашна',time:r.time||'',ingredients:Array.isArray(r.ingredients)?r.ingredients:[]});
+const minutes=t=>{const m=String(t||'').match(/\d+/);return m?Number(m[0]):0};
+const matches=(r,term='')=>{const hay=[r.title,r.excerpt,r.category,r.area,...r.ingredients.map(x=>x.name||''),...r.ingredients.map(x=>x.measure||'')].join(' ').toLocaleLowerCase('bg');return (!term||hay.includes(term))&&(activeCategory==='Всички'||r.category===activeCategory)&&(!maxTime||!minutes(r.time)||minutes(r.time)<=maxTime)};
+function card(r){return '<article class="card"><img loading="lazy" src="'+safeImage(r.img)+'" alt="'+String(r.title||'Рецепта').replace(/"/g,'&quot;')+'"><div class="card-body"><span class="tag">'+r.category+'</span><h3><a href="'+r.url+'">'+r.title+'</a></h3><p>'+String(r.excerpt).replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</p><div class="meta"><span>⏱ '+(r.time||'Според рецептата')+'</span><span>🌍 '+r.area+'</span></div></div></article>'}
+function render(list,target){target.innerHTML=list.length?list.map(card).join(''):'<div class="empty">Няма рецепти за избраните условия.</div>'}
+function search(q){const term=q.trim().toLocaleLowerCase('bg');const list=recipes.filter(r=>matches(r,term));searchPanel.hidden=false;searchStatus.textContent='Намерени рецепти: '+list.length;render(list,searchGrid);searchPanel.scrollIntoView({behavior:'smooth',block:'start'})}
+function renderFilters(){const cats=['Всички',...new Set(recipes.map(r=>r.category).filter(Boolean))];filterBox.innerHTML=cats.map(c=>'<button type="button" class="chip" data-cat="'+c.replace(/"/g,'&quot;')+'">'+c+'</button>').join('')+'<select id="timeFilter" class="chip-select" aria-label="Максимално време"><option value="0">Време: всички</option><option value="30">До 30 мин</option><option value="60">До 60 мин</option><option value="90">До 90 мин</option></select>';filterBox.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{activeCategory=b.dataset.cat;filterBox.querySelectorAll('[data-cat]').forEach(x=>x.setAttribute('aria-current',x===b?'true':'false'));render(recipes.filter(r=>matches(r)),grid)});document.querySelector('#timeFilter').onchange=e=>{maxTime=Number(e.target.value);render(recipes.filter(r=>matches(r)),grid)}}
 form.addEventListener('submit',e=>{e.preventDefault();search(input.value)});
 document.querySelectorAll('[data-search]').forEach(b=>b.addEventListener('click',()=>{input.value=b.dataset.search;search(b.dataset.search)}));
-
-async function loadRecipes(){
-  try{
-    const api=await fetch('/api/recipes',{cache:'no-store'});
-    if(api.ok){const data=await api.json();if(Array.isArray(data)&&data.length)return data.map(normalize)}
-  }catch(e){}
-  const local=await fetch('/recipes.json');
-  return (await local.json()).map(normalize);
-}
-loadRecipes().then(data=>{recipes=data;render(recipes.slice(0,6),grid)}).catch(()=>{grid.innerHTML='<div class="empty">Рецептите временно не се зареждат.</div>'});
+async function loadRecipes(){try{const api=await fetch('/api/recipes',{cache:'no-store'});if(api.ok){const data=await api.json();if(Array.isArray(data)&&data.length)return data.map(normalize)}}catch(e){}return (await (await fetch('/recipes.json')).json()).map(normalize)}
+loadRecipes().then(data=>{recipes=data;renderFilters();render(recipes.slice(0,6),grid)}).catch(()=>{grid.innerHTML='<div class="empty">Рецептите временно не се зареждат.</div>'});
