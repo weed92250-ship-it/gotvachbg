@@ -77,6 +77,9 @@ function extractSectionLoose(wikitext, starts, ends) {
   const plainName = line => line.replace(/^[\s:;#*\-]+/, '').trim();
   const normalizeName = value => String(value || '')
     .toLowerCase()
+    .replace(/'+/g, '')
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '$2')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
     .replace(/[\s:;,.!?-]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
