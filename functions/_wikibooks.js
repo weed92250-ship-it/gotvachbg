@@ -71,12 +71,17 @@ function parseTime(wikitext) {
 }
 
 function extractSectionLoose(wikitext, starts, ends) {
-  const lines = String(wikitext || '').split(/\\r?\\n/);
-  const isHeading = line => /^\\s*=+\\s*.*?\\s*=+\\s*$/.test(line);
-  const headingName = line => line.replace(/^\\s*=+\\s*/, '').replace(/\\s*=+\\s*$/, '').trim();
+  const lines = String(wikitext || '').split(/\r?\n/);
+  const isHeading = line => /^\s*=+\s*.*?\s*=+\s*$/.test(line);
+  const headingName = line => line.replace(/^\s*=+\s*/, '').replace(/\s*=+\s*$/, '').trim();
+  const plainName = line => line.replace(/^[\s:;#*\-]+/, '').trim();
+  const matches = (line, names) => {
+    const value = (isHeading(line) ? headingName(line) : plainName(line)).toLowerCase();
+    return names.some(x => value === x.toLowerCase());
+  };
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (isHeading(lines[i]) && starts.some(x => headingName(lines[i]).toLowerCase() === x.toLowerCase())) {
+    if (matches(lines[i], starts)) {
       start = i + 1;
       break;
     }
@@ -84,10 +89,10 @@ function extractSectionLoose(wikitext, starts, ends) {
   if (start < 0) return '';
   const out = [];
   for (let i = start; i < lines.length; i++) {
-    if (isHeading(lines[i]) && ends.some(x => headingName(lines[i]).toLowerCase() === x.toLowerCase())) break;
+    if (matches(lines[i], ends)) break;
     out.push(lines[i]);
   }
-  return out.join('\\n');
+  return out.join('\n');
 }
 
 function parseRecipe(title, wikitext) {
