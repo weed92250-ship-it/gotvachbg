@@ -99,9 +99,10 @@ async function apiQuery(params) {
 
 async function fetchWikitext(title) {
   const data = await apiQuery({ action: 'parse', page: title, prop: 'wikitext' });
-  return data && data.parse && data.parse.wikitext && data.parse.wikitext['*']
-    ? data.parse.wikitext['*']
-    : '';
+  if (!data || !data.parse) return '';
+  if (typeof data.parse.wikitext === 'string') return data.parse.wikitext;
+  if (data.parse.wikitext && typeof data.parse.wikitext['*'] === 'string') return data.parse.wikitext['*'];
+  return '';
 }
 
 async function listRecipeTitles() {
