@@ -27,7 +27,7 @@ export async function onRequestGet({ env, params }) {
   ).join('');
   const stepsHtml = (row.instructions || '').split(/\n\n+/)
     .filter(Boolean)
-    .map((p, i) => `<li><strong>${i + 1}.</strong> ${escapeHtml(p)}</li>`).join('');
+    .map((p, i) => `<li>${escapeHtml(p.replace(/^\s*\d+[.)]\s*/, ''))}</li>`).join('');
 
   const commentsHtml = comments.length
     ? comments.map(c => `<article class="comment"><strong>${escapeHtml(c.name)}</strong><time>${escapeHtml(c.date)}</time><p>${escapeHtml(c.text)}</p></article>`).join('')
