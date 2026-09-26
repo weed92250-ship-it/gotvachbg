@@ -76,7 +76,7 @@ export async function onRequestGet({ env, params }) {
 <img class="recipe-cover" src="${escapeHtml(image)}" alt="${title}" loading="eager">
 <div class="recipe-body">
 <h1>${title}</h1>
-<p class="lead">${desc}</p>\n<div class="recipe-actions"><button class="favorite-btn" type="button" data-favorite-id="${escapeHtml(row.id)}" aria-pressed="false">♡ Добави в любими</button></div>
+<p class="lead">${desc}</p>\n${row.source_id && row.source_id.startsWith("wikibooks:") ? `<p class="notice">Източник: <a href="${escapeHtml("https://bg.wikibooks.org/wiki/" + encodeURIComponent(row.source_id.slice("wikibooks:".length).replace(/ /g, "_")))}" target="_blank" rel="noopener">Уикикниги – Готварска книга</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · преработено за Готвач БГ.</p>` : ""}\n<div class="recipe-actions"><button class="favorite-btn" type="button" data-favorite-id="${escapeHtml(row.id)}" aria-pressed="false">♡ Добави в любими</button></div>
 <div class="facts"><span class="fact">🍽 ${escapeHtml(row.category)}</span><span class="fact">🌍 ${escapeHtml(row.area)}</span><span class="fact">👨‍🍳 ${escapeHtml(row.author)}</span><span class="fact">📅 ${escapeHtml(row.date)}</span></div>
 <h2>Необходими продукти</h2><ul class="ingredients">${ingredientsHtml}</ul>
 <h2>Начин на приготвяне</h2><ol class="steps">${stepsHtml}</ol>
