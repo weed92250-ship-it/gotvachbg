@@ -213,14 +213,16 @@ function extractLegacyRecipe(wikitext) {
   const source = String(wikitext || '').replace(/\r/g, '');
   const lines = source.split('\n').map(x => x.trim()).filter(Boolean);
 
-  // {{рецепта|продукти=...|...}} followed by prose.
-  const tpl = source.match(/\{\{рецепта\|([\s\S]*?)\}\}/i);
+  // Legacy templates use different template names, but expose a продукти= field.
+  const tpl = source.match(/\{\{[^{}\n]*\|([\s\S]*?)\}\}/i);
   if (tpl) {
     const body = tpl[1];
     const pm = body.match(/(?:^|\|)продукти\s*=\s*([\s\S]*?)(?=\|(?:време|енерг|ен\.\s*ст\.|порции)\s*=|$)/i);
-    const ingredients = pm ? pm[1].replace(/<nowiki\s*\/?\s*>/gi, '').trim() : '';
-    const after = source.slice(tpl.index + tpl[0].length).trim();
-    return { ingredients, prep: after };
+    if (pm) {
+      const ingredients = pm[1].replace(/<nowiki\s*\/?\s*>/gi, '').replace(/<p>\s*|\s*<\/p>/gi, '').trim();
+      const after = source.slice(tpl.index + tpl[0].length).trim();
+      return { ingredients, prep: after };
+    }
   }
 
   // Older pages often list ingredients as plain lines and mark preparation with bullets.
@@ -247,7 +249,7 @@ function extractIngredientsFromProse(text) {
     }
   };
 
-  const re = /(?:около\s+)?(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|½|1\/2)\s*(g|гр(?:\.|ама)?|kg|кг|ml|мл|l|л|с\.\s*л\.?|ч\.\s*л\.?)\s+([А-Яа-яA-Za-z][^,.;]+?)(?=\s+(?:и|за|да|като|се|с|без)\s|[,.;]|$)/giu;
+  const re = /(?:около\s+)?(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\s*\d+)?)?|½|1\/2)\s*(g|гр(?:\.|ама)?|kg|кг|ml|мл|l|л|с\.\s*л\.?|ч\.\s*л\.?|глава(?:та)?|скилид(?:ка|ки)|чаш(?:а|и))\s+([А-Яа-яA-Za-z][^,.;]+?)(?=\s+(?:и|за|да|като|се|с|без|в)\s|[,.;]|$)/giu;
 
   for (const m of s.matchAll(re)) {
     add(m[3], m[1] + ' ' + m[2]);
@@ -259,38 +261,55 @@ function extractIngredientsFromProse(text) {
     'хляб', 'лимон', 'червен пипер', 'чили', 'оцет'
   ]) {
     const escaped = word.replace(/\s+/g, '\\s+');
-    if (new RegExp('\\\\b' + escaped + '\\\\b', 'i').test(s)) add(word);
+    if (new RegExp('\\b' + escaped + '\\b', 'i').test(s)) add(word);
   }
 
   return found;
 }
 
 function parseRecipe(title, wikitext) {
-  const legacy = extractLegacyRecipe(wikitext);
-  const ingredientsSection = legacy.ingredients || extractIngredientsFallback(wikitext)
-    || extractSectionLoose(
-      wikitext,
-      ['Продукти', 'Необходими продукти'],
-      ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+  const source = String(wikitext || '');
+  const legacy = extractLegacyRecipe(source);
+  const hasIngredientMarker = /(?:^|\n)\s*(?:#+\s*)?(?:продукти|необходими продукти)\s*:?/im.test(source)
+    || /\|\s*продукти\s*=/i.test(source);
+
+  const ingredientsSection = legacy.ingredients || (
+    hasIngredientMarker
+      ? extractIngredientsFallback(source)
+        || extractSectionLoose(
+          source,
+          ['Продукти', 'Необходими продукти'],
+          ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+        )
+        || extractRecipeSection(
+          source,
+          ['Продукти', 'Необходими продукти'],
+          ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+        )
+      : ''
+  );
+
+  const prepSection =
+    extractSectionLoose(
+      source,
+      ['Приготвяне', 'Начин на приготвяне'],
+      ['Източници', 'Други', 'Бележка', 'Забележка']
     )
-    || extractRecipeSection(
-      wikitext,
-      ['Продукти', 'Необходими продукти'],
-      ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
-    );
-  const prepSection = legacy.prep || extractSectionLoose(
-    wikitext,
-    ['Приготвяне', 'Начин на приготвяне'],
-    ['Източници', 'Други', 'Бележка', 'Забележка']
-  ) || sectionBetween(
-    wikitext,
-    ['Приготвяне', 'Начин на приготвяне'],
-    ['Източници', 'Други', 'Бележка', 'Забележка']
-  ) || extractPrepFallback(wikitext) || extractFlatPrep(wikitext);
+    || sectionBetween(
+      source,
+      ['Приготвяне', 'Начин на приготвяне'],
+      ['Източници', 'Други', 'Бележка', 'Забележка']
+    )
+    || extractPrepFallback(source)
+    || extractFlatPrep(source)
+    || legacy.prep
+    || (!hasIngredientMarker ? source : '');
+
   let ingredients = parseIngredients(ingredientsSection);
-  if (ingredients.length < 2 && (legacy.prep || String(wikitext || '').trim())) {
-    ingredients = extractIngredientsFromProse(legacy.prep || wikitext);
+  if (ingredients.length < 2) {
+    ingredients = extractIngredientsFromProse(legacy.prep || source);
   }
+
   const instructions = cleanWikiText(prepSection)
     .replace(/\^\{[^}]*\}/g, '')
     .replace(/\n\s*/g, ' ')
@@ -301,13 +320,13 @@ function parseRecipe(title, wikitext) {
     return {
       error: ingredients.length < 2 ? 'no_ingredients' : 'short_instructions',
       diagnostic: {
-        wikitextChars: String(wikitext || '').length,
+        wikitextChars: source.length,
         ingredientsSectionChars: ingredientsSection.length,
         prepSectionChars: prepSection.length,
         ingredientCount: ingredients.length,
         instructionChars: instructions.length,
-        rawLines: String(wikitext || '').replace(/\r/g, '').split('\n').slice(0, 40),
-        markerLines: String(wikitext || '').replace(/\r/g, '').split('\n')
+        rawLines: source.replace(/\r/g, '').split('\n').slice(0, 40),
+        markerLines: source.replace(/\r/g, '').split('\n')
           .map((line, index) => ({ index: index + 1, line, cleaned: cleanWikiText(line) }))
           .filter(x => /продукт|порци|време|ен\.\s*ст\.|приготвяне|източници|бележка/i.test(x.line))
           .slice(0, 30)
@@ -319,7 +338,7 @@ function parseRecipe(title, wikitext) {
     title: title.replace(/^Готварска книга:\s*/i, '').trim(),
     ingredients,
     instructions,
-    time: parseTime(wikitext),
+    time: parseTime(source),
   };
 }
 
