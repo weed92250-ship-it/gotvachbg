@@ -62,7 +62,7 @@ export async function onRequestGet({ env, params }) {
 <meta property="og:url" content="${url}">
 <meta property="og:image" content="${image}">
 <link rel="stylesheet" href="/assets/site.css">
-<script type="application/ld+json">${JSON.stringify(recipeSchema).replace(/</g,'\\u003c')}</script>
+<script src="/assets/favorites.js" defer></script>\n<script type="application/ld+json">${JSON.stringify(recipeSchema).replace(/</g,'\\u003c')}</script>
 <style>
 .recipe-page{padding:36px 0 70px}.crumbs{font-size:14px;color:var(--muted);margin-bottom:20px}.recipe-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px}.recipe-main,.recipe-side{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.recipe-main{overflow:hidden}.recipe-cover{width:100%;height:440px;object-fit:cover;display:block}.recipe-body{padding:30px}.recipe-body h1{font-size:clamp(32px,5vw,48px);line-height:1.08;letter-spacing:-1.5px;margin:0 0 14px}.lead{font-size:18px;color:var(--muted)}.facts{display:flex;flex-wrap:wrap;gap:9px;margin:20px 0}.fact{background:var(--soft);padding:9px 12px;border-radius:10px;font-weight:750;font-size:14px}.recipe-body h2{margin-top:34px;font-size:25px}.ingredients,.steps{padding-left:22px}.ingredients li,.steps li{margin:12px 0}.recipe-side{padding:22px;height:max-content;position:sticky;top:18px}.recipe-side h2{margin-top:0}.comment{border-top:1px solid var(--line);padding:15px 0}.comment time{color:var(--muted);font-size:12px;margin-left:8px}.comment p{margin:6px 0}.comment-form{display:grid;gap:10px;margin-top:15px}.comment-form input,.comment-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit}.comment-form textarea{min-height:110px;resize:vertical}.muted{color:var(--muted)}.back{color:var(--brand);text-decoration:none;font-weight:800}.notice{padding:12px;background:#f7f1ea;border-radius:10px;font-size:13px;color:var(--muted)}@media(max-width:850px){.recipe-layout{grid-template-columns:1fr}.recipe-side{position:static}.recipe-cover{height:300px}.recipe-body{padding:22px}}
 </style>
@@ -76,7 +76,7 @@ export async function onRequestGet({ env, params }) {
 <img class="recipe-cover" src="${escapeHtml(image)}" alt="${title}" loading="eager">
 <div class="recipe-body">
 <h1>${title}</h1>
-<p class="lead">${desc}</p>
+<p class="lead">${desc}</p>\n<div class="recipe-actions"><button class="favorite-btn" type="button" data-favorite-id="${escapeHtml(row.id)}" aria-pressed="false">♡ Добави в любими</button></div>
 <div class="facts"><span class="fact">🍽 ${escapeHtml(row.category)}</span><span class="fact">🌍 ${escapeHtml(row.area)}</span><span class="fact">👨‍🍳 ${escapeHtml(row.author)}</span><span class="fact">📅 ${escapeHtml(row.date)}</span></div>
 <h2>Необходими продукти</h2><ul class="ingredients">${ingredientsHtml}</ul>
 <h2>Начин на приготвяне</h2><ol class="steps">${stepsHtml}</ol>
