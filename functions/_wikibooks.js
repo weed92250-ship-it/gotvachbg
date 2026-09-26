@@ -109,26 +109,49 @@ function extractSectionLoose(wikitext, starts, ends) {
 }
 
 function extractRecipeSection(wikitext, starts, ends) {
-  const source = String(wikitext || '').replace(/\r/g, '');
-  const start = starts.join('|');
-  const end = ends.join('|');
+  const lines = String(wikitext || '').replace(/\r/g, '').split('\n');
+  const normalize = value => cleanWikiText(value)
+    .replace(/^#+\s*/, '')
+    .replace(/^\s*[:;*\-]+\s*/, '')
+    .trim()
+    .toLowerCase();
 
-  const re = new RegExp(
-    '(?:^|\\n)[^\\n]*(?:' + start + ')[^\\n]*\\n([\\s\\S]*?)(?=\\n[^\\n]*(?:' + end + ')[^\\n]*(?:\\n|$)|$)',
-    'im'
-  );
-  const m = source.match(re);
-  if (m) return m[1].trim();
+  let start = -1;
+  let inline = '';
 
-  // Fallback: locate the markers anywhere in the raw wikitext.
-  const startRe = new RegExp('(?:^|\\n)[^\\n]*(?:' + start + ')[^\\n]*', 'im');
-  const endRe = new RegExp('(?:^|\\n)[^\\n]*(?:' + end + ')[^\\n]*', 'im');
-  const sm = startRe.exec(source);
-  if (!sm) return '';
-  const from = sm.index + sm[0].length;
-  const tail = source.slice(from);
-  const em = endRe.exec(tail);
-  return tail.slice(0, em ? em.index : tail.length).trim();
+  for (let i = 0; i < lines.length; i++) {
+    const cleaned = cleanWikiText(lines[i]).replace(/^#+\s*/, '').trim();
+    const lower = cleaned.toLowerCase();
+
+    for (const name of starts) {
+      const target = String(name).toLowerCase();
+      if (lower === target || lower.startsWith(target + ':') || lower.startsWith(target + ' ')) {
+        start = i + 1;
+        if (lower.startsWith(target + ':')) inline = cleaned.slice(name.length + 1).trim();
+        else if (lower.startsWith(target + ' ')) inline = cleaned.slice(name.length).trim();
+        break;
+      }
+    }
+    if (start >= 0) break;
+  }
+
+  if (start < 0) return '';
+
+  const out = [];
+  if (inline) out.push(inline);
+
+  for (let i = start; i < lines.length; i++) {
+    const cleaned = cleanWikiText(lines[i]).replace(/^#+\s*/, '').trim();
+    const lower = cleaned.toLowerCase();
+    const isEnd = ends.some(name => {
+      const target = String(name).toLowerCase();
+      return lower === target || lower.startsWith(target + ':') || lower.startsWith(target + ' ');
+    });
+    if (isEnd) break;
+    out.push(lines[i]);
+  }
+
+  return out.join('\n').trim();
 }
 
 function parseRecipe(title, wikitext) {
