@@ -163,7 +163,7 @@ function extractIngredientsFallback(wikitext) {
   if (productMatch) {
     const section = beforePrep.slice(productMatch.index + productMatch[0].length);
     return section
-      .split(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:/i)[0]
+      .split(/(?:^|\n)[^\n]*?(?:порции|време|ен\.\s*ст\.)\s*:{1,2}[^\n]*(?:\n|$)/i)[0]
       .replace(/^\s*=+\s*\n?/g, '')
       .trim();
   }
@@ -178,11 +178,13 @@ function extractIngredientsFallback(wikitext) {
 
 function extractFlatPrep(wikitext) {
   const source = String(wikitext || '').replace(/\r/g, '');
-  const m = source.match(/(?:^|\n)\s*ен\.\s*ст\.\s*:[^\n]*\n([\s\S]*)/i);
-  if (m) return m[1].trim();
 
-  const matches = [...source.matchAll(/(?:^|\n)\s*(?:порции|време)\s*:[^\n]*/gi)];
+  // Metadata may be bolded, templated, or prefixed with wiki list syntax.
+  // Find the last metadata field and take everything after its whole line.
+  const re = /(?:^|\n)[^\n]*?(?:'{2,3})?\s*(?:порции|време|ен\.\s*ст\.)\s*:{1,2}[^\n]*(?:\n|$)/gi;
+  const matches = [...source.matchAll(re)];
   if (!matches.length) return '';
+
   const last = matches[matches.length - 1];
   return source.slice(last.index + last[0].length).trim();
 }
