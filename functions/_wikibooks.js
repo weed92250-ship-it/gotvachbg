@@ -75,9 +75,17 @@ function extractSectionLoose(wikitext, starts, ends) {
   const isHeading = line => /^\s*=+\s*.*?\s*=+\s*$/.test(line);
   const headingName = line => line.replace(/^\s*=+\s*/, '').replace(/\s*=+\s*$/, '').trim();
   const plainName = line => line.replace(/^[\s:;#*\-]+/, '').trim();
+  const normalizeName = value => String(value || '')
+    .toLowerCase()
+    .replace(/[\s:;,.!?-]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const matches = (line, names) => {
-    const value = (isHeading(line) ? headingName(line) : plainName(line)).toLowerCase();
-    return names.some(x => value === x.toLowerCase());
+    const value = normalizeName(isHeading(line) ? headingName(line) : plainName(line));
+    return names.some(x => {
+      const target = normalizeName(x);
+      return value === target || value.startsWith(target + ' ') || value.startsWith(target + '(');
+    });
   };
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
