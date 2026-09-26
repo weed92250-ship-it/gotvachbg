@@ -45,6 +45,24 @@ function parseIngredients(section) {
     }
     if (name && name.length > 1) ingredients.push({ name, measure });
   }
+  if (ingredients.length === 0) {
+    const fallback = cleanWikiText(section)
+      .replace(/^\s*Продукти\s*:?\s*/i, '')
+      .replace(/^\s*Необходими продукти\s*:?\s*/i, '')
+      .replace(/^-{3,}$/gm, '')
+      .trim();
+    for (const raw of fallback.split(/[;,\n]+/)) {
+      const value = raw.trim();
+      if (!value || value.length < 2) continue;
+      const dash = value.match(/^(.+?)\s+[–—-]\s+(.+)$/);
+      let measure = '', name = value;
+      if (dash) {
+        measure = dash[1].trim();
+        name = dash[2].trim();
+      }
+      if (name && name.length > 1) ingredients.push({ name, measure });
+    }
+  }
   return ingredients;
 }
 
@@ -106,12 +124,25 @@ function extractSectionLoose(wikitext, starts, ends) {
   return out.join('\n');
 }
 
+function extractRecipeSection(wikitext, starts, ends) {
+  const start = starts.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\function parseRecipe(title, wikitext) {')).join('|');
+  const end = ends.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\function parseRecipe(title, wikitext) {')).join('|');
+  const re = new RegExp(
+    '(?:^|\\n)\\s*(?:={1,6}\\s*)?(?:' + start + ')\\s*:?\\s*' +
+    '([\\s\\S]*?)(?=\\n\\s*(?:={1,6}\\s*)?(?:' + end + ')\\s*:?\\s*(?:={1,6})?\\s*(?:\\n|$)|$)',
+    'im'
+  );
+  const m = wikitext.match(re);
+  if (m) return m[1].trim();
+  const loose = new RegExp(
+    '(?:^|\\n)\\s*(?:={1,6}\\s*)?(?:' + start + ')[^\\n]*',
+    'im'
+  );
+  return '';
+}
+
 function parseRecipe(title, wikitext) {
-  const ingredientsSection = extractSectionLoose(
-    wikitext,
-    ['Продукти', 'Необходими продукти'],
-    ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
-  ) || sectionBetween(
+  const ingredientsSection = extractRecipeSection(
     wikitext,
     ['Продукти', 'Необходими продукти'],
     ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
