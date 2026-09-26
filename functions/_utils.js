@@ -41,5 +41,8 @@ export function rowToRecipe(r) {
     author: r.author,
     date: r.date,
     featured: !!r.featured,
+    url: r.url || ('/recipe/' + r.id),
+    img: r.image || null,
+    time: r.time || null,
   };
 }
