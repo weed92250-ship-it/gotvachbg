@@ -404,6 +404,17 @@ async function fetchWikitextBatch(titles) {
     } catch (_) {}
   }
 
+  // Some legacy/missing pages can come back without revision content in a batch.
+  // Retry those titles individually before treating them as no_wikitext.
+  for (const title of titles) {
+    if (!result.has(title) && !redirects.some(x => x.title === title)) {
+      try {
+        const text = await fetchWikitext(title);
+        if (text) result.set(title, text);
+      } catch (_) {}
+    }
+  }
+
   return result;
 }
 
