@@ -242,34 +242,7 @@ async function renderRecipeDetail(app, id) {
 }
 
 function renderAdmin(app) {
-  const key = getAdminKey();
-  if (!key) {
-    app.innerHTML = `
-      <div class="admin-box">
-        <h2>Вход в админ панела</h2>
-        <input id="adminPassword" type="password" placeholder="Парола">
-        <button class="btn" id="loginBtn">Вход</button>
-        <p id="loginError" style="color:#a3372b;font-size:13px;"></p>
-      </div>
-    `;
-    document.getElementById('loginBtn').onclick = async () => {
-      const password = document.getElementById('adminPassword').value;
-      try {
-        const res = await fetchJSON('/api/login', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ password }),
-        });
-        setAdminKey(res.key);
-        renderAdmin(app);
-      } catch (e) {
-        document.getElementById('loginError').textContent = 'Грешна парола.';
-      }
-    };
-    return;
-  }
-
-  renderAdminPanel(app, key);
+  window.location.href = '/admin';
 }
 
 async function renderAdminPanel(app, key, tab = 'recipes') {
