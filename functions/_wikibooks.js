@@ -90,11 +90,26 @@ function parseRecipe(title, wikitext) {
   };
 }
 
-async function apiQuery(params) {
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function apiQuery(params, attempts = 4) {
   const url = API + '?' + new URLSearchParams({ ...params, format: 'json', formatversion: '2', origin: '*' });
-  const res = await fetch(url, { headers: { 'user-agent': 'GotvachBG/1.0' } });
-  if (!res.ok) throw new Error('Wikibooks API: ' + res.status);
-  return res.json();
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const res = await fetch(url, {
+      headers: {
+        'user-agent': 'GotvachBG/1.0 (recipe importer; respectful rate limiting)'
+      }
+    });
+    if (res.ok) return res.json();
+    if (res.status === 429 || res.status === 503) {
+      const retryAfter = Number(res.headers.get('retry-after') || 0);
+      const wait = retryAfter > 0 ? Math.min(retryAfter * 1000, 15000) : 2000 * (attempt + 1);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error('Wikibooks API: ' + res.status);
+  }
+  throw new Error('Wikibooks API: 429 Too Many Requests след повторни опити');
 }
 
 async function fetchWikitext(title) {
@@ -146,6 +161,7 @@ export async function runWikibooksImport(env, limit = 10) {
     if (added >= limit) break;
     checked++;
     try {
+      if (checked > 1) await sleep(800);
       const sourceId = slugId(title);
       const existing = await env.DB.prepare('SELECT id FROM recipes WHERE source_id = ?').bind(sourceId).first();
       if (existing) {
