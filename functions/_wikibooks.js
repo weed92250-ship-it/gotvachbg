@@ -167,6 +167,17 @@ function extractIngredientsFallback(wikitext) {
     .trim();
 }
 
+function extractFlatPrep(wikitext) {
+  const source = String(wikitext || '').replace(/\r/g, '');
+  const matches = [...source.matchAll(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi)];
+  if (!matches.length) return '';
+  const last = matches[matches.length - 1];
+  const from = last.index + last[0].length;
+  return source.slice(from)
+    .replace(/^\s+/, '')
+    .trim();
+}
+
 function parseRecipe(title, wikitext) {
   const ingredientsSection = extractIngredientsFallback(wikitext)
     || extractSectionLoose(
@@ -187,7 +198,7 @@ function parseRecipe(title, wikitext) {
     wikitext,
     ['Приготвяне', 'Начин на приготвяне'],
     ['Източници', 'Други', 'Бележка', 'Забележка']
-  ) || extractPrepFallback(wikitext);
+  ) || extractPrepFallback(wikitext) || extractFlatPrep(wikitext);
   const ingredients = parseIngredients(ingredientsSection);
   const instructions = cleanWikiText(prepSection)
     .replace(/\^\{[^}]*\}/g, '')
