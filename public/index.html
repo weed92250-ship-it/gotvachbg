@@ -188,6 +188,7 @@ async function renderRecipeDetail(app, id) {
     <div class="recipe-detail">
       <h1>${escapeHtml(r.title)}</h1>
       <div class="meta">${escapeHtml(r.author)} · ${escapeHtml(r.date)} · ${escapeHtml(r.category)} · ${escapeHtml(r.area)}</div>
+      ${r.sourceUrl ? `<p class="source-note">Източник: <a href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener">Уикикниги – Готварска книга</a> · <a href="${escapeHtml(r.sourceLicenseUrl)}" target="_blank" rel="noopener">CC BY-SA 4.0</a> · преработено за Готвач БГ.</p>` : ''}
       ${r.image ? `<img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.title)}">` : ''}
       <div class="tags">${r.dietTags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>
       <div class="ingredients-list">
