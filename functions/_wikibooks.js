@@ -160,9 +160,17 @@ function extractIngredientsFallback(wikitext) {
   const prepIndex = prepMatch ? prepMatch.index : source.length;
   const beforePrep = source.slice(0, prepIndex);
   const productMatch = beforePrep.match(/Продукти\s*:?/i);
-  if (!productMatch) return '';
-  return beforePrep.slice(productMatch.index + productMatch[0].length)
-    .replace(/^\s*=+\s*\n?/g, '')
+  if (productMatch) {
+    return beforePrep.slice(productMatch.index + productMatch[0].length)
+      .replace(/^\s*=+\s*\n?/g, '')
+      .replace(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi, '')
+      .trim();
+  }
+
+  // Some short recipes have no "Продукти" marker at all.
+  // In that case, use the text before "Приготвяне" as the ingredient area.
+  return beforePrep
+    .replace(/^\s*=+[^\n]*\n/gm, '')
     .replace(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi, '')
     .trim();
 }
@@ -176,6 +184,12 @@ function extractFlatPrep(wikitext) {
   return source.slice(from)
     .replace(/^\s+/, '')
     .trim();
+}
+
+function extractInlinePrep(wikitext) {
+  const source = String(wikitext || '').replace(/\r/g, '');
+  const m = source.match(/(?:^|\n)\s*(?:'''\s*)?(?:Начин на приготвяне|Приготвяне)\s*:?\s*(?:'''\s*)?([\s\S]*?)(?=\n\s*(?:Източници|Други|Бележка|Забележка)\b|$)/i);
+  return m ? m[1].trim() : '';
 }
 
 function parseRecipe(title, wikitext) {
