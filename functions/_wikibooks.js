@@ -154,12 +154,31 @@ function extractRecipeSection(wikitext, starts, ends) {
   return out.join('\n').trim();
 }
 
+function extractIngredientsFallback(wikitext) {
+  const source = String(wikitext || '').replace(/\r/g, '');
+  const prepMatch = source.match(/(?:^|\n)[^\n]*(?:Приготвяне|Начин на приготвяне)[^\n]*/i);
+  const prepIndex = prepMatch ? prepMatch.index : source.length;
+  const beforePrep = source.slice(0, prepIndex);
+  const productMatch = beforePrep.match(/Продукти\s*:?/i);
+  if (!productMatch) return '';
+  return beforePrep.slice(productMatch.index + productMatch[0].length)
+    .replace(/^\s*=+\s*\n?/g, '')
+    .replace(/(?:^|\n)\s*(?:порции|време|ен\.\s*ст\.)\s*:[^\n]*/gi, '')
+    .trim();
+}
+
 function parseRecipe(title, wikitext) {
-  const ingredientsSection = extractRecipeSection(
-    wikitext,
-    ['Продукти', 'Необходими продукти'],
-    ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
-  );
+  const ingredientsSection = extractIngredientsFallback(wikitext)
+    || extractSectionLoose(
+      wikitext,
+      ['Продукти', 'Необходими продукти'],
+      ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+    )
+    || extractRecipeSection(
+      wikitext,
+      ['Продукти', 'Необходими продукти'],
+      ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
+    );
   const prepSection = extractSectionLoose(
     wikitext,
     ['Приготвяне', 'Начин на приготвяне'],
