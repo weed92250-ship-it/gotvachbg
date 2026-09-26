@@ -404,13 +404,22 @@ async function fetchWikitextBatch(titles) {
     } catch (_) {}
   }
 
-  // Some legacy/missing pages can come back without revision content in a batch.
-  // Retry those titles individually before treating them as no_wikitext.
+  // Retry every title that did not yield batch content individually.
   for (const title of titles) {
     if (!result.has(title) && !redirects.some(x => x.title === title)) {
       try {
         const text = await fetchWikitext(title);
         if (text) result.set(title, text);
+      } catch (_) {}
+    }
+  }
+
+  // Resolve redirects individually as well.
+  for (const item of redirects) {
+    if (!result.has(item.title)) {
+      try {
+        const targetText = await fetchWikitext(item.target);
+        if (targetText) result.set(item.title, targetText);
       } catch (_) {}
     }
   }
