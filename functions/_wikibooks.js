@@ -385,7 +385,7 @@ async function fetchWikitext(title) {
         const slot = rev && rev.slots && rev.slots.main;
         const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
         if (typeof text === 'string' && text.trim()) {
-          const redirect = text.match(/^\\s*#redirect\\s*\\[\\[([^\\]|#]+)(?:#[^\\]|]*)?(?:\\|[^\\]]+)?\\]\\]/i);
+          const redirect = text.match(/^\s*#redirect\s*\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/i);
           if (redirect) {
             const target = redirect[1].trim();
             try {
