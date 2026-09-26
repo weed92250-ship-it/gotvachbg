@@ -209,8 +209,55 @@ function extractMetaFallbackPrep(wikitext) {
   return meta >= 0 ? lines.slice(meta + 1).join('\n').trim() : '';
 }
 
+function extractLegacyRecipe(wikitext) {
+  const source = String(wikitext || '').replace(/\r/g, '');
+  const lines = source.split('\n').map(x => x.trim()).filter(Boolean);
+
+  // {{рецепта|продукти=...|...}} followed by prose.
+  const tpl = source.match(/\{\{рецепта\|([\s\S]*?)\}\}/i);
+  if (tpl) {
+    const body = tpl[1];
+    const pm = body.match(/(?:^|\|)продукти\s*=\s*([\s\S]*?)(?=\|(?:време|енерг|ен\.\s*ст\.|порции)\s*=|$)/i);
+    const ingredients = pm ? pm[1].replace(/<nowiki\s*\/?\s*>/gi, '').trim() : '';
+    const after = source.slice(tpl.index + tpl[0].length).trim();
+    return { ingredients, prep: after };
+  }
+
+  // Older pages often list ingredients as plain lines and mark preparation with bullets.
+  const prepIndex = lines.findIndex(line => /^(?:•|\*|#)\s*/.test(line));
+  if (prepIndex > 0) {
+    const before = lines.slice(0, prepIndex);
+    const prep = lines.slice(prepIndex).join('\n');
+    const ingredientLines = before.filter(line =>
+      /\d|\bсол\b|\bорехи?\b|\bкопър\b|\bчесън\b|\bмляко\b|\bмаруля\b|\bолио\b|\bмасло\b/i.test(line)
+    );
+    if (ingredientLines.length >= 2) return { ingredients: ingredientLines.join('\n'), prep };
+  }
+
+  return { ingredients: '', prep: '' };
+}
+
+function extractIngredientsFromProse(text) {
+  const s = cleanWikiText(text).replace(/[()]/g, ' ');
+  const found = [];
+  const add = (name, measure='') => {
+    const key = name.toLowerCase().trim();
+    if (key.length > 1 && !found.some(x => x.name.toLowerCase() === key)) found.push({ name: name.trim(), measure });
+  };
+
+  for (const m of s.matchAll(/(?:около\s+)?(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|½|1\/2)\s*(g|гр(?:\.|ама)?|kg|кг|ml|мл|l|л|с\.\s*л\.|с\.\s*л|ч\.\s*л\.|ч\.\s*л)\s+([А-Яа-яA-Za-z][^,.;]+?)(?=\s+(?:и|за|да|като|се|с|без)\s|[,.;]|$)/giu) {
+    add(m[3], m[1] + ' ' + m[2]);
+  }
+
+  for (const word of ['шкембе','хайвер','лук','чесън','масло','олио','мляко','сметана','бренди','вода','сол','орехи','копър','маруля','хляб','лимон','червен пипер','чили','оцет']) {
+    if (new RegExp('\\b' + word.replace(/\s+/g,'\\s+') + '\\b','i').test(s)) add(word);
+  }
+  return found;
+}
+
 function parseRecipe(title, wikitext) {
-  const ingredientsSection = extractIngredientsFallback(wikitext)
+  const legacy = extractLegacyRecipe(wikitext);
+  const ingredientsSection = legacy.ingredients || extractIngredientsFallback(wikitext)
     || extractSectionLoose(
       wikitext,
       ['Продукти', 'Необходими продукти'],
@@ -221,7 +268,7 @@ function parseRecipe(title, wikitext) {
       ['Продукти', 'Необходими продукти'],
       ['Приготвяне', 'Начин на приготвяне', 'Източници', 'Други', 'Бележка', 'Забележка']
     );
-  const prepSection = extractSectionLoose(
+  const prepSection = legacy.prep || extractSectionLoose(
     wikitext,
     ['Приготвяне', 'Начин на приготвяне'],
     ['Източници', 'Други', 'Бележка', 'Забележка']
@@ -230,7 +277,10 @@ function parseRecipe(title, wikitext) {
     ['Приготвяне', 'Начин на приготвяне'],
     ['Източници', 'Други', 'Бележка', 'Забележка']
   ) || extractPrepFallback(wikitext) || extractFlatPrep(wikitext);
-  const ingredients = parseIngredients(ingredientsSection);
+  let ingredients = parseIngredients(ingredientsSection);
+  if (ingredients.length < 2 && (legacy.prep || String(wikitext || '').trim())) {
+    ingredients = extractIngredientsFromProse(legacy.prep || wikitext);
+  }
   const instructions = cleanWikiText(prepSection)
     .replace(/\^\{[^}]*\}/g, '')
     .replace(/\n\s*/g, ' ')
