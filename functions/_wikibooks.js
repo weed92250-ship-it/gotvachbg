@@ -109,20 +109,59 @@ function extractSectionLoose(wikitext, starts, ends) {
 }
 
 function extractRecipeSection(wikitext, starts, ends) {
-  const start = starts.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\function parseRecipe(title, wikitext) {')).join('|');
-  const end = ends.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\function parseRecipe(title, wikitext) {')).join('|');
-  const re = new RegExp(
-    '(?:^|\\n)\\s*(?:={1,6}\\s*)?(?:' + start + ')\\s*:?\\s*' +
-    '([\\s\\S]*?)(?=\\n\\s*(?:={1,6}\\s*)?(?:' + end + ')\\s*:?\\s*(?:={1,6})?\\s*(?:\\n|$)|$)',
-    'im'
-  );
-  const m = wikitext.match(re);
-  if (m) return m[1].trim();
-  const loose = new RegExp(
-    '(?:^|\\n)\\s*(?:={1,6}\\s*)?(?:' + start + ')[^\\n]*',
-    'im'
-  );
-  return '';
+  const lines = String(wikitext || '').split(/\r?\n/);
+  const norm = value => cleanWikiText(value)
+    .replace(/^#+\s*/, '')
+    .replace(/^[:;*#\-\s]+/, '')
+    .trim()
+    .toLowerCase();
+  const isMarker = (line, names) => {
+    const value = norm(line);
+    return names.some(name => {
+      const target = String(name).toLowerCase();
+      return value === target ||
+        value.startsWith(target + ':') ||
+        value.startsWith(target + ' ');
+    });
+  };
+
+  let start = -1;
+  let firstContent = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cleaned = cleanWikiText(line)
+      .replace(/^#+\s*/, '')
+      .replace(/^\s*[:;*\-]+\s*/, '')
+      .trim();
+    const lower = cleaned.toLowerCase();
+
+    const matched = starts.find(name => {
+      const target = String(name).toLowerCase();
+      return lower === target || lower.startsWith(target + ':') || lower.startsWith(target + ' ');
+    });
+
+    if (matched) {
+      start = i + 1;
+      const target = String(matched).toLowerCase();
+      if (lower.startsWith(target + ':')) {
+        firstContent = cleaned.slice(matched.length + 1).trim();
+      } else if (lower.startsWith(target + ' ')) {
+        firstContent = cleaned.slice(matched.length).trim();
+      }
+      break;
+    }
+  }
+
+  if (start < 0) return '';
+
+  const out = [];
+  if (firstContent) out.push(firstContent);
+
+  for (let i = start; i < lines.length; i++) {
+    if (isMarker(lines[i], ends)) break;
+    out.push(lines[i]);
+  }
+  return out.join('\n').trim();
 }
 
 function parseRecipe(title, wikitext) {
