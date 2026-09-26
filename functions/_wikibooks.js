@@ -21,39 +21,19 @@ function cleanWikiText(value) {
 }
 
 function sectionBetween(wikitext, startNames, endNames) {
-  const starts = startNames.join('|');
-  const ends = endNames.join('|');
-  const re = new RegExp('^=+\\s*(?:' + starts + ')\\s*=+\\s*\\n([\\s\\S]*?)(?=^=+\\s*(?:' + ends + ')\\s*=+|$)', 'im');
+  const starts = startNames.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&')).join('|');
+  const ends = endNames.map(x => x.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&')).join('|');
+  const re = new RegExp(
+    '^\\s*(?:={1,6}\\s*)?(?:' + starts + ')(?:\\s*={1,6})?\\s*\\n([\\s\\S]*?)(?=^\\s*(?:={1,6}\\s*)?(?:' + ends + ')(?:\\s*={1,6})?\\s*$|$)',
+    'im'
+  );
   const m = wikitext.match(re);
   return m ? m[1] : '';
 }
 
-function parseIngredients(section) {
-  const ingredients = [];
-  for (const raw of section.split(/\r?\n/)) {
-    if (!/^\s*\*+\s+/.test(raw)) continue;
-    let value = cleanWikiText(raw.replace(/^\s*\*+\s+/, ''));
-    if (!value) continue;
-    if (/^за\s+.+:\s*$/i.test(value)) continue;
-    if (/^необходими продукти:?$/i.test(value)) continue;
-    value = value.replace(/[;]+$/, '').trim();
-    let measure = '';
-    let name = value;
-
-    const dash = value.match(/^(.+?)\s+[–—-]\s+(.+)$/);
-    if (dash) {
-      measure = dash[1].trim();
-      name = dash[2].trim();
-    } else {
-      const leading = value.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|половин|половина|няколко|една|един|едно)(?:\s+[^,;]+?){0,3})\s+(.+)$/i);
-      if (leading) {
-        measure = leading[1].trim();
-        name = leading[2].trim();
-      }
-    }
-    if (name && name.length > 1) ingredients.push({ name, measure });
-  }
-  return ingredients;
+function extractPrepFallback(wikitext) {
+  const m = wikitext.match(/(?:^|\\n)\\s*(?:={1,6}\\s*)?(?:Приготвяне|Начин на приготвяне)(?:\\s*={1,6})?\\s*\\n([\\s\\S]*?)(?=\\n\\s*(?:={1,6}\\s*)?(?:Източници|Други|Бележка|Забележка)(?:\\s*={1,6})?\\s*$|$)/im);
+  return m ? m[1] : '';
 }
 
 function parseTime(wikitext) {
@@ -72,7 +52,7 @@ function parseRecipe(title, wikitext) {
     wikitext,
     ['Приготвяне', 'Начин на приготвяне'],
     ['Източници', 'Други', 'Бележка', 'Забележка']
-  );
+  ) || extractPrepFallback(wikitext);
   const ingredients = parseIngredients(ingredientsSection);
   const instructions = cleanWikiText(prepSection)
     .replace(/\^\{[^}]*\}/g, '')
