@@ -195,6 +195,20 @@ function extractInlinePrep(wikitext) {
   return m ? m[1].trim() : '';
 }
 
+function extractMetaFallbackPrep(wikitext) {
+  const source = String(wikitext || '').replace(/\r/g, '');
+  const lines = source.split('\n');
+  let meta = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const plain = cleanWikiText(lines[i])
+      .replace(/^\s*[*#;:]+\s*/, '')
+      .trim()
+      .toLowerCase();
+    if (/^(?:порции|време|ен\.\s*ст\.)\s*:{1,2}/i.test(plain)) meta = i;
+  }
+  return meta >= 0 ? lines.slice(meta + 1).join('\n').trim() : '';
+}
+
 function parseRecipe(title, wikitext) {
   const ingredientsSection = extractIngredientsFallback(wikitext)
     || extractSectionLoose(
