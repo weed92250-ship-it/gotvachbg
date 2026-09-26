@@ -389,15 +389,6 @@ function normalizeTitleKey(title) {
 }
 
 async function fetchWikitextBatch(titles) {
-  const requested = [...new Set(titles.flatMap(titleVariants))];
-  const data = await apiQuery({
-    action: 'query',
-    prop: 'revisions',
-    rvprop: 'content',
-    rvslots: 'main',
-    redirects: 1,
-    titles: requested.join('|')
-  });
   const result = new Map();
   const redirects = [];
   const requestedKeys = new Map();
@@ -408,23 +399,43 @@ async function fetchWikitextBatch(titles) {
     }
   }
 
-  for (const page of (data && data.query && data.query.pages) || []) {
-    const rev = page.revisions && page.revisions[0];
-    const slot = rev && rev.slots && rev.slots.main;
-    const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
-    const requestedTitle = requestedKeys.get(normalizeTitleKey(page.title));
+  // Keep URL-based API requests small. MediaWiki permits up to 50 titles,
+  // but long Bulgarian titles can still trigger HTTP 414 at the web-server layer.
+  const queryTitles = [...new Set(titles.flatMap(titleVariants))];
+  for (let offset = 0; offset < queryTitles.length; offset += 8) {
+    const chunk = queryTitles.slice(offset, offset + 8);
+    try {
+      const data = await apiQuery({
+        action: 'query',
+        prop: 'revisions',
+        rvprop: 'content',
+        rvslots: 'main',
+        redirects: 1,
+        titles: chunk.join('|')
+      });
 
-    if (page.title && typeof text === 'string') {
-      const redirect = text.match(/^\s*#redirect\s*\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/i);
-      if (redirect) {
-        redirects.push({
-          title: requestedTitle || page.title,
-          target: redirect[1].trim()
-        });
-      } else {
-        result.set(requestedTitle || page.title, text);
+      for (const page of (data && data.query && data.query.pages) || []) {
+        const rev = page.revisions && page.revisions[0];
+        const slot = rev && rev.slots && rev.slots.main;
+        const text = slot && (typeof slot.content === 'string' ? slot.content : slot['*']);
+        const requestedTitle = requestedKeys.get(normalizeTitleKey(page.title));
+
+        if (page.title && typeof text === 'string') {
+          const redirect = text.match(/^\s*#redirect\s*\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/i);
+          if (redirect) {
+            redirects.push({
+              title: requestedTitle || page.title,
+              target: redirect[1].trim()
+            });
+          } else {
+            result.set(requestedTitle || page.title, text);
+          }
+        }
       }
+    } catch (_) {
+      // Individual retries below handle this chunk without aborting the import.
     }
+    if (offset + 8 < queryTitles.length) await sleep(250);
   }
 
   for (const item of redirects) {
@@ -435,8 +446,7 @@ async function fetchWikitextBatch(titles) {
     } catch (_) {}
   }
 
-  // Retry missing titles with both colon-spacing variants. Some Wikibooks links
-  // differ only by "Готварска книга:" vs "Готварска книга: ".
+  // Retry missing titles with both colon-spacing variants.
   for (const title of titles) {
     if (result.has(title)) continue;
     for (const variant of titleVariants(title)) {
