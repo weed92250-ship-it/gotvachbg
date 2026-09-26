@@ -240,18 +240,28 @@ function extractLegacyRecipe(wikitext) {
 function extractIngredientsFromProse(text) {
   const s = cleanWikiText(text).replace(/[()]/g, ' ');
   const found = [];
-  const add = (name, measure='') => {
+  const add = (name, measure = '') => {
     const key = name.toLowerCase().trim();
-    if (key.length > 1 && !found.some(x => x.name.toLowerCase() === key)) found.push({ name: name.trim(), measure });
+    if (key.length > 1 && !found.some(x => x.name.toLowerCase() === key)) {
+      found.push({ name: name.trim(), measure });
+    }
   };
 
-  for (const m of s.matchAll(/(?:около\s+)?(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|½|1\/2)\s*(g|гр(?:\.|ама)?|kg|кг|ml|мл|l|л|с\.\s*л\.|с\.\s*л|ч\.\s*л\.|ч\.\s*л)\s+([А-Яа-яA-Za-z][^,.;]+?)(?=\s+(?:и|за|да|като|се|с|без)\s|[,.;]|$)/giu) {
+  const re = /(?:около\s+)?(\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?|½|1\/2)\s*(g|гр(?:\.|ама)?|kg|кг|ml|мл|l|л|с\.\s*л\.?|ч\.\s*л\.?)\s+([А-Яа-яA-Za-z][^,.;]+?)(?=\s+(?:и|за|да|като|се|с|без)\s|[,.;]|$)/giu;
+
+  for (const m of s.matchAll(re)) {
     add(m[3], m[1] + ' ' + m[2]);
   }
 
-  for (const word of ['шкембе','хайвер','лук','чесън','масло','олио','мляко','сметана','бренди','вода','сол','орехи','копър','маруля','хляб','лимон','червен пипер','чили','оцет']) {
-    if (new RegExp('\\b' + word.replace(/\s+/g,'\\s+') + '\\b','i').test(s)) add(word);
+  for (const word of [
+    'шкембе', 'хайвер', 'лук', 'чесън', 'масло', 'олио', 'мляко',
+    'сметана', 'бренди', 'вода', 'сол', 'орехи', 'копър', 'маруля',
+    'хляб', 'лимон', 'червен пипер', 'чили', 'оцет'
+  ]) {
+    const escaped = word.replace(/\s+/g, '\\s+');
+    if (new RegExp('\\\\b' + escaped + '\\\\b', 'i').test(s)) add(word);
   }
+
   return found;
 }
 
