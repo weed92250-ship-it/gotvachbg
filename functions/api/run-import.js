@@ -1,5 +1,5 @@
 import { jsonResponse } from '../_utils.js';
-import { runDailyImport } from '../_mealdb.js';
+import { runWikibooksImport } from '../_wikibooks.js';
 
 export async function onRequestPost({ request, env }) {
   const key = request.headers.get('x-admin-key');
@@ -7,7 +7,7 @@ export async function onRequestPost({ request, env }) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
   try {
-    const result = typeof runDailyImport === 'function' ? await runDailyImport(env) : { error: 'Import function missing' };
+    const result = typeof runWikibooksImport === 'function' ? await runWikibooksImport(env) : { error: 'Import function missing' };
     return jsonResponse(result);
   } catch (err) {
     return jsonResponse({ error: 'Import failed', details: String(err && err.message ? err.message : err) }, 500);
