@@ -11,3 +11,5 @@ $('recipeForm').onsubmit=async e=>{e.preventDefault();try{const ingredients=$('i
 $('cancel').onclick=()=>{$('recipeForm').reset();$('id').value=''};
 $('logout').onclick=async()=>{await fetch('/api/logout',{method:'POST'});showLogin()};
 load().then(()=>{loginBox.hidden=true;panel.hidden=false}).catch(()=>showLogin());
+
+$('repair').onclick=async()=>{if(!confirm('Да се преработят ли преводите на внесените рецепти? Това може да отнеме няколко минути.'))return;const b=$('repair');b.disabled=true;b.textContent='Поправям...';try{const res=await api('/api/repair-imported',{method:'POST',body:'{}'});alert('Проверени: '+res.checked+' | Поправени: '+res.fixed+' | Неуспешни: '+res.failed);await load()}catch(e){alert(e.message||'Поправката не успя.')}finally{b.disabled=false;b.textContent='Поправи преводите'}};
