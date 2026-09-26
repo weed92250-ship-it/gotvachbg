@@ -285,19 +285,23 @@ ${meal.strInstructions}
   return null;
 }
 
+function normalizeTranslatedRecipe(data) {
+  if (!data) return null;
+  const cleanText = value => String(value || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
+  const title = cleanText(data.title).replace(/^["'„“”]+|["'„“”]+$/g, '').replace(/\s{2,}/g, ' ');
+  const ingredients = Array.isArray(data.ingredients) ? data.ingredients.map(i => ({ name: cleanText(i && i.name), measure: cleanText(i && i.measure) })) : [];
+  const instructions = cleanText(data.instructions).replace(/^\s*\d+[.)]\s*/gm, '').replace(/\n{3,}/g, '\n\n');
+  return { title, ingredients, instructions };
+}
+
 async function translateRecipeWithRetry(env, meal, ingredientsEn) {
-  let data = await translateRecipeWithAI(env, meal, ingredientsEn);
-  if (data) return data;
-
-  data = await translateRecipeWithAI(
-    env,
-    meal,
-    ingredientsEn,
-    'измислени мерни думи (напр. "зрънце"/"хапка"/"капка") или еднакъв превод за различни съставки, или грешен превод на екзотична съставка (напр. "plantain" преведено просто като "банан"), или измислен несъществуващ глагол в стъпките (напр. "търбуха" вместо "къкри")'
-  );
-  if (data) return data;
-
-  return { title: meal.strMeal, ingredients: ingredientsEn, instructions: meal.strInstructions };
+  const feedback = 'Не превеждай дума по дума. Всяка съставка трябва да запази точното си значение. Стъпките трябва да звучат като естествена българска рецепта. Не добавяй информация, която липсва в оригинала.';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const data = await translateRecipeWithAI(env, meal, ingredientsEn, attempt ? feedback : '');
+    const normalized = normalizeTranslatedRecipe(data);
+    if (normalized && validateTranslation(normalized, ingredientsEn)) return normalized;
+  }
+  return null;
 }
 
 // Намира вече публикувани рецепти, при които преводът е паднал (заглавието е
@@ -363,6 +367,36 @@ async function fetchRandomMeal() {
   return data.meals && data.meals[0];
 }
 
+async function fetchMealById(id) {
+  const res = await fetch(`${MEALDB_BASE}/lookup.php?i=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error('TheMealDB lookup се провали: ' + res.status);
+  const data = await res.json();
+  return data.meals && data.meals[0];
+}
+
+export async function retranslateImportedRecipes(env, limit = 100) {
+  const { results } = await env.DB.prepare('SELECT id, source_id FROM recipes WHERE source_id IS NOT NULL AND source_id != ? ORDER BY date DESC LIMIT ?').bind('', limit).all();
+  let checked = 0, fixed = 0, failed = 0;
+  const errors = [];
+  for (const row of results || []) {
+    checked++;
+    try {
+      const meal = await fetchMealById(row.source_id);
+      if (!meal) throw new Error('оригиналът не е намерен');
+      const ingredientsEn = extractIngredients(meal);
+      if (!ingredientsEn.length) throw new Error('липсват оригинални съставки');
+      const translated = await translateRecipeWithRetry(env, meal, ingredientsEn);
+      if (!translated) throw new Error('преводът не премина проверката за качество');
+      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 180);
+      await env.DB.prepare('UPDATE recipes SET title=?, title_en=?, excerpt=?, ingredients=?, instructions=? WHERE id=?').bind(translated.title, meal.strMeal, excerpt, JSON.stringify(translated.ingredients), translated.instructions, row.id).run();
+      fixed++;
+    } catch (err) {
+      failed++;
+      errors.push(row.id + ': ' + String(err && err.message ? err.message : err));
+    }
+  }
+  return { checked, fixed, failed, errors };
+}
 export async function runDailyImport(env) {
   const targetCount = 3 + Math.floor(Math.random() * 3);
   let added = 0;
@@ -384,8 +418,12 @@ export async function runDailyImport(env) {
       const ingredientsEn = extractIngredients(meal);
       const dietTags = computeDietTags(ingredientsEn);
       const translated = await translateRecipeWithRetry(env, meal, ingredientsEn);
+      if (!translated) {
+        errors.push(meal.idMeal + ': преводът не премина проверката за качество');
+        continue;
+      }
 
-      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 160);
+      const excerpt = translated.instructions.split(/\n+/)[0].slice(0, 180);
       const category = CATEGORY_MAP[meal.strCategory] || meal.strCategory || 'Разни';
       const area = AREA_MAP[meal.strArea] || meal.strArea || 'Международна';
 
