@@ -19,7 +19,7 @@ const AREA_MAP = {
   'Polish': 'Полска', 'Portuguese': 'Португалска', 'Russian': 'Руска',
   'Spanish': 'Испанска', 'Thai': 'Тайландска', 'Tunisian': 'Тунизийска',
   'Turkish': 'Турска', 'Ukrainian': 'Украинска', 'Uruguayan': 'Уругвайска',
-  'Vietnamese': 'Виетнамска',
+  'Vietnamese': 'Виетнамска', 'Syrian': 'Сирийска',
 };
 
 const MEAT_KEYWORDS = ['chicken','beef','pork','lamb','bacon','sausage','turkey','duck','fish','shrimp','prawn','salmon','tuna','anchov','crab','lobster','ham','veal','venison','mince'];
@@ -122,6 +122,11 @@ function hasExcessDuplicateNames(originalIngredients, translatedIngredients) {
 // Известни грешни/безсмислени преводи на готварски глаголи, които вече сме засичали
 // в реални рецепти (напр. "търбуха" вместо "къкри" за "simmer"). Списъкът расте с времето.
 const BAD_INSTRUCTION_WORDS = [
+  'смешайте', 'смешай', 'смешване',
+  'грухч', 'смесът', 'сместът',
+  'отложете настрана', 'поместете под грила',
+  'натрите', 'натрия', 'оставете я да отдихне',
+  'палачинкеният торт', 'послужете го',
   'търбух', 'търбуха', 'търбухат', // грешен превод на "simmer"
   'духови форми', 'духова форма', // грешен превод на "hole(s)" в форма за печене (напр. "12-hole tin")
   'запеките', 'запек', // грешна форма на "запек" (constipation) вместо глагола "печете"/"изпечете"
@@ -141,6 +146,7 @@ function validateTranslation(data, ingredientsEn) {
   if (!isCleanField(data.title)) return false;
   if (hasMixedScriptGlitch(data.instructions)) return false;
   if (hasBadInstructionWords(data.instructions)) return false;
+  if (/\b(смеш|грухч|смесът|отдихне|натрите|послужете)\w*/i.test(data.instructions)) return false;
 
   for (const ing of data.ingredients) {
     if (!isCleanField(ing.name) || typeof ing.measure !== 'string' || ing.measure.includes('|') || hasMixedScriptGlitch(ing.measure)) return false;
@@ -187,6 +193,21 @@ const INGREDIENT_GLOSSARY = `Речник на съставки, които ле
 - (baking tin with) 12 holes -> форма с 12 дупки/гнезда (НИКОГА "духова форма" — това не съществува)
 Ако срещнеш съставка, която не е в този речник и нямаш сигурен български еквивалент, транслитерирай името вместо да измисляш грешен превод.`;
 
+const BULGARIAN_QUALITY_RULES = `Правила за естествен български:
+- Не превеждай английския словоред буквално. Изреченията трябва да звучат като написана от български готвач рецепта.
+- "mix" -> "смесете" или "разбъркайте", никога "смешайте".
+- "mixture" -> "сместа", никога "смесът".
+- "rest" -> "оставете да почине", никога "оставете да отдихне".
+- "set aside" -> "оставете настрана".
+- "brush" -> "намажете".
+- "place under the grill" -> "поставете под грила".
+- "olive oil" -> "зехтин", не "маслиново масло".
+- "batter" -> "тесто", "pancake" -> "палачинка".
+- "serve" -> "поднесете", никога "послужете".
+- Не измисляй думи и не превеждай английска дума със сходно звучаща българска дума.
+- Пази смисъла, количествата, температурите, времената и реда на действията.
+`;
+
 const ACTION_GLOSSARY = `Речник на кулинарни термини за форми и довършителни действия:
 - dust with sugar -> поръсете със захар (НИКОГА "прахвайте")
 - bake -> печете / изпечете (НИКОГА форма на думата "запек")
@@ -220,7 +241,7 @@ ${INGREDIENT_GLOSSARY}
 
 ${VERB_GLOSSARY}
 
-${ACTION_GLOSSARY}
+${ACTION_GLOSSARY}\n\n${BULGARIAN_QUALITY_RULES}
 
 Правила за съставките:
 - Превеждай всяка съставка отделно и точно според оригиналното ѝ значение — никога не давай на две различни съставки един и същ превод, освен ако наистина означават едно и също нещо.
