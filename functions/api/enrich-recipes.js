@@ -70,5 +70,5 @@ export async function onRequestPost({ request, env }) {
     try { await enrichOne(env,row); updated++; }
     catch(err) { failed++; errors.push(row.title+': '+String(err?.message || err)); }
   }
-  return jsonResponse({checked:results?.length||0,updated,failed,errors});
+  return jsonResponse({checked:results?.length||0,updated,failed,errors,titles:(results||[]).map(r=>r.title)});
 }
