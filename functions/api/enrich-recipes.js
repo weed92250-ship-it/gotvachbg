@@ -26,7 +26,7 @@ async function enrichOne(env, row) {
   if (raw.startsWith('```')) raw = raw.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
   const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
   if (a<0 || b<a) throw new Error('AI не върна JSON');
-  const data=JSON.parse(raw.slice(a,b+1));
+  const jsonText=raw.slice(a,b+1).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');\n  const data=JSON.parse(jsonText);
   if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
   const image=row.image || await findCommonsImage(row.title);
   await env.DB.prepare('UPDATE recipes SET excerpt=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),String(data.instructions),image,row.id).run();
