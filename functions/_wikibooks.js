@@ -37,6 +37,15 @@ function parseIngredients(section) {
         const item = part.trim();
         if (!item || item.length < 2) continue;
         let measure = '', name = item;
+
+        const kinds = item.match(/^(\d+)\s+вида\s+([^:]+):\s*(.+)$/i);
+        if (kinds) {
+          measure = kinds[1].trim() + ' вида';
+          name = kinds[2].trim() + ': ' + kinds[3].trim();
+          ingredients.push({ name, measure });
+          continue;
+        }
+
         const dash = item.match(/^(.+?)\s+[–—-]\s+(.+)$/);
         if (dash) { measure = dash[1].trim(); name = dash[2].trim(); }
         else {
@@ -310,11 +319,22 @@ export function parseRecipe(title, wikitext) {
     ingredients = extractIngredientsFromProse(legacy.prep || source);
   }
 
-  const instructions = cleanWikiText(prepSection)
+  const instructionsSource = cleanWikiText(prepSection)
     .replace(/\^\{[^}]*\}/g, '')
     .replace(/\n\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
+
+  const sentences = instructionsSource
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const instructionParagraphs = [];
+  for (let i = 0; i < sentences.length; i += 2) {
+    instructionParagraphs.push(sentences.slice(i, i + 2).join(' '));
+  }
+  const instructions = instructionParagraphs.join('\n\n');
 
   if (ingredients.length < 2 || instructions.length < 80) {
     return {
