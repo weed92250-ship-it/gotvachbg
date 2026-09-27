@@ -19,8 +19,9 @@ async function enrichOne(env, row) {
   const ingredients = JSON.parse(row.ingredients || '[]');
   const prompt = 'Разшири тази българска рецепта за сайт за домашно готвене. Запази абсолютно всички съществуващи количества, съставки и факти. Не измисляй нови съставки или количества. Пиши естествен, подробен български текст.\n\n' +
     'Заглавие: ' + row.title + '\nСъставки: ' + JSON.stringify(ingredients) + '\nСъществуващ начин на приготвяне: ' + row.instructions + '\n\n' +
-    'Върни САМО JSON: {"excerpt":"кратко апетитно описание","instructions":"дълъг структуриран текст с въведение, подробни стъпки, полезни съвети и сервиране"}. ' +
-    'instructions трябва да е поне 900 знака. Не твърди, че авторът лично е готвил. Не измисляй хранителни стойности. Запази оригиналните действия и количества. Използвай празен ред между абзаците.';
+    'Върни САМО JSON: {"excerpt":"кратко апетитно описание","ingredients":[{"name":"продукт","measure":"количество"}],"instructions":"дълъг структуриран текст с въведение, подробни стъпки, полезни съвети и сервиране"}. ' +
+    'ingredients трябва да съдържа само реалните продукти и количества от подадения списък; ако в него има изречение от приготвянето, премахни само изречението. Не измисляй нови съставки или количества. ' +
+    'instructions трябва да е поне 900 знака. Не твърди, че авторът лично е готвил. Не измисляй хранителни стойности. Запази оригиналните действия и количества. Не повтаряй едни и същи идеи. В JSON използвай \\n за нов ред, а не реален нов ред вътре в string.';
   const ai = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages:[{role:'system',content:'Ти си български кулинарен редактор. Пиши естествено и конкретно. Връщай само валиден JSON.'},{role:'user',content:prompt}], max_tokens:3500 });
   let raw = extractText(ai).trim();
   if (raw.startsWith('```')) raw = raw.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
@@ -45,7 +46,7 @@ async function enrichOne(env, row) {
   const data=JSON.parse(safeJson);
   if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
   const image=row.image || await findCommonsImage(row.title);
-  await env.DB.prepare('UPDATE recipes SET excerpt=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),String(data.instructions),image,row.id).run();
+  await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),JSON.stringify(cleanedIngredients),String(data.instructions),image,row.id).run();
 }
 
 export async function onRequestPost({ request, env }) {
