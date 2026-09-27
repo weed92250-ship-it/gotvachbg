@@ -11,42 +11,28 @@ function buildNaturalInstructions(original) {
   const source = String(original || '').trim();
   if (!source) return '';
 
-  const sentences = source
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
+  const cleaned = source
+    .replace(/={2,6}\\s*([^=\\n]+?)\\s*={2,6}/g, '$1')
+    .replace(/\\s+/g, ' ')
+    .trim();
+
+  const sentences = cleaned
+    .split(/(?<=[.!?])\\s+/)
     .map(s => s.trim())
     .filter(Boolean);
 
-  const groups = [];
-  let current = [];
-  const stepPattern = /изми|почист|нареж|отряз|разпред|подреж|слож|добав|долив|затвар|вар|обръщ|охлад|престоя|печ|запърж|свар|разбър|омес|остав/iu;
+  if (!sentences.length) return cleaned;
 
-  for (const sentence of sentences) {
-    current.push(sentence);
-    if (stepPattern.test(sentence) || current.length >= 2) {
-      groups.push(current.join(' '));
-      current = [];
-    }
-  }
-  if (current.length) groups.push(current.join(' '));
-
-  const labels = ['Подготовка', 'Подреждане и смесване', 'Термична обработка', 'Завършване'];
-  const meaningful = groups.filter(Boolean);
-  if (!meaningful.length) return source;
-
-  return meaningful.map((text, i) => {
-    const label = labels[Math.min(i, labels.length - 1)];
-    return label + ': ' + text;
-  }).join('\n\n');
+  return sentences.map((sentence, index) => (index + 1) + '. ' + sentence).join('\\n\\n');
 }
 
 async function findCommonsImage(title) {
   try {
     const data = await fetch('https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
-      action:'query', generator:'search', gsrsearch:title+' food', gsrnamespace:'6', gsrlimit:'1',
+      action:'query', generator:'search', gsrsearch:'"'+title+'"', gsrnamespace:'6', gsrlimit:'5',
       prop:'imageinfo', iiprop:'url', iiurlwidth:'1200', format:'json', origin:'*'
     }), { headers:{'user-agent':'GotvachBG/1.0 (recipe enrichment)'} }).then(r=>r.json());
-    const page = Object.values(data?.query?.pages || {})[0];
+    const pages = Object.values(data?.query?.pages || {});\n    const page = pages.find(p => p?.title?.toLowerCase().includes(String(title || '').toLowerCase())) || pages[0];
     if (page?.title?.startsWith('File:')) {
       return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(page.title.slice(5)) + '?width=1200';
     }
@@ -62,7 +48,7 @@ async function enrichOne(env, row) {
   if (!instructions) throw new Error('Изходният начин на приготвяне е празен');
 
   const excerpt = String(row.excerpt || ('Домашна рецепта за ' + row.title + '.')).trim().slice(0,500);
-  const image = await findCommonsImage(row.title) || row.image || null;
+  const defaultImage = String(row.image || '').includes('photo-1546069901-ba9599a7e63c');\n  const image = await findCommonsImage(row.title) || (defaultImage ? null : row.image) || null;
 
   await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?')
     .bind(excerpt, JSON.stringify(ingredients), instructions, image, row.id).run();
