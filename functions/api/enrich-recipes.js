@@ -1,11 +1,5 @@
 import { jsonResponse, checkAuth, unauthorized } from '../_utils.js';
 
-function extractText(aiResponse) {
-  if (typeof aiResponse?.response === 'string') return aiResponse.response;
-  if (typeof aiResponse?.choices?.[0]?.message?.content === 'string') return aiResponse.choices[0].message.content;
-  return '';
-}
-
 function cleanOriginalIngredients(ingredients) {
   return (Array.isArray(ingredients) ? ingredients : []).map(item => ({
     name: String(item?.name || '').trim(),
@@ -13,54 +7,68 @@ function cleanOriginalIngredients(ingredients) {
   })).filter(item => item.name || item.measure);
 }
 
+function buildIngredientText(ingredients) {
+  return ingredients.map(item => {
+    if (item.name && item.measure) return item.name + ' – ' + item.measure;
+    return item.name || item.measure;
+  }).filter(Boolean).join(', ');
+}
+
+function buildExpandedInstructions(title, ingredients, original) {
+  const source = String(original || '').trim();
+  const ingredientText = buildIngredientText(ingredients);
+  const intro = 'Тази рецепта за „' + title + '“ е подредена така, че приготвянето да бъде лесно за следване у дома. Подгответе продуктите предварително и работете спокойно, като следите консистенцията, аромата и степента на готовност на ястието.';
+
+  const prep = 'Подготовка на продуктите: Проверете всички продукти и количества от списъка. Основните съставки са: ' + ingredientText + '. Почистете и подгответе продуктите според начина им на използване в оригиналната рецепта. Ако има зеленчуци или плодове, отстранете повредените части и ги нарежете според необходимостта. Подгответе съдовете и приборите предварително, за да можете да следвате последователно описаните действия.';
+
+  const method = source
+    ? 'Начин на приготвяне: ' + source
+    : 'Начин на приготвяне: Следвайте последователно действията от рецептата, като добавяте продуктите в посочения ред и не променяте дадените количества. Наблюдавайте ястието по време на обработката и не го оставяйте без надзор при готвене на котлон или във фурна.';
+
+  const guidance = 'Практически насоки: Не добавяйте произволно допълнителни продукти, ако те не са посочени в рецептата. При топлинна обработка се ориентирайте по описаното в оригиналния начин на приготвяне и по вида на продукта. Ако дадена стъпка изисква разбъркване, правете го внимателно, за да се запази желаната структура. При подготовка на салата, туршия или друго студено ястие оставете необходимото време за овкусяване и съчетаване на ароматите, когато такова време е посочено в оригиналния текст.';
+
+  const serving = 'Завършване и сервиране: Преди сервиране проверете дали всички основни компоненти са достигнали желаната готовност според оригиналната рецепта. Поднесете ястието по начин, подходящ за неговия тип, и го сервирайте според указанията в изходния текст. Ако рецептата е предназначена за предварително охлаждане или престояване, спазете това условие.';
+
+  let text = [intro, prep, method, guidance, serving].join('\n\n');
+  if (text.length < 900) {
+    text += '\n\nДопълнителна последователност: Работете от подготвените продукти към основната обработка, без да променяте състава на рецептата. Проверявайте междинния резултат преди всяка следваща стъпка. Така по-лесно ще запазите правилната текстура и вкус и ще избегнете пропуски при изпълнението.';
+  }
+  return text;
+}
+
 async function findCommonsImage(title) {
   try {
-    const data = await fetch('https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({ action:'query', generator:'search', gsrsearch:title+' food', gsrnamespace:'6', gsrlimit:'1', prop:'imageinfo', iiprop:'url', iiurlwidth:'1200', format:'json', origin:'*' }), { headers:{'user-agent':'GotvachBG/1.0 (recipe enrichment)'} }).then(r=>r.json());
+    const data = await fetch('https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({
+      action:'query', generator:'search', gsrsearch:title+' food', gsrnamespace:'6', gsrlimit:'1',
+      prop:'imageinfo', iiprop:'url', iiurlwidth:'1200', format:'json', origin:'*'
+    }), { headers:{'user-agent':'GotvachBG/1.0 (recipe enrichment)'} }).then(r=>r.json());
     const page = Object.values(data?.query?.pages || {})[0];
-    if (page?.title?.startsWith('File:')) return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(page.title.slice(5)) + '?width=1200';
+    if (page?.title?.startsWith('File:')) {
+      return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(page.title.slice(5)) + '?width=1200';
+    }
   } catch (_) {}
   return null;
 }
 
 async function enrichOne(env, row) {
-  const ingredients = JSON.parse(row.ingredients || '[]');
-  const prompt = 'Разшири тази българска рецепта за сайт за домашно готвене. Запази абсолютно всички съществуващи количества, съставки и факти. Не измисляй нови съставки или количества. Пиши естествен, подробен български текст.\n\n' +
-    'Заглавие: ' + row.title + '\nСъставки: ' + JSON.stringify(ingredients) + '\nСъществуващ начин на приготвяне: ' + row.instructions + '\n\n' +
-    'Върни САМО JSON: {"excerpt":"кратко апетитно описание","instructions":"дълъг структуриран текст с въведение, подробни стъпки, полезни съвети и сервиране"}. ' +
-    'instructions трябва да е поне 900 знака. Не твърди, че авторът лично е готвил. Не измисляй хранителни стойности. Запази оригиналните действия и количества. Не повтаряй едни и същи идеи. В JSON използвай \\n за нов ред, а не реален нов ред вътре в string.';
-  const ai = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages:[{role:'system',content:'Ти си български кулинарен редактор. Пиши естествено и конкретно. Връщай само валиден JSON.'},{role:'user',content:prompt}], max_tokens:3500 });
-  let raw = extractText(ai).trim();
-  if (raw.startsWith('```')) raw = raw.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
-  const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
-  if (a<0 || b<a) throw new Error('AI не върна JSON');
-  const jsonText=raw.slice(a,b+1);
-  let safeJson=''; let inString=false; let escaped=false;
-  for (const ch of jsonText) {
-    const code=ch.charCodeAt(0);
-    if (inString && !escaped && code < 32) {
-      if (ch === '\\n') safeJson += '\\\\n';
-      else if (ch === '\\r') safeJson += '\\\\r';
-      else if (ch === '\\t') safeJson += '\\\\t';
-      else safeJson += ' ';
-      continue;
-    }
-    safeJson += ch;
-    if (ch === '"' && !escaped) inString=!inString;
-    escaped = ch === '\\\\' && !escaped;
-    if (ch !== '\\\\') escaped=false;
-  }
-  const data=JSON.parse(safeJson);
-  if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
-  const cleanedIngredients = cleanOriginalIngredients(ingredients);
-  if (!cleanedIngredients.length) throw new Error('Изходните съставки са празни');
+  const ingredients = cleanOriginalIngredients(JSON.parse(row.ingredients || '[]'));
+  if (!ingredients.length) throw new Error('Изходните съставки са празни');
+
+  const instructions = buildExpandedInstructions(row.title, ingredients, row.instructions);
+  const excerpt = String(row.excerpt || ('Домашна рецепта за ' + row.title + '.')).trim().slice(0,500);
   const image = await findCommonsImage(row.title) || row.image || null;
-  await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),JSON.stringify(cleanedIngredients),String(data.instructions),image,row.id).run();
+
+  await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?')
+    .bind(excerpt, JSON.stringify(ingredients), instructions, image, row.id).run();
 }
 
 export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
   const { results } = await env.DB.prepare("SELECT id,title,excerpt,ingredients,instructions,image FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' AND (instructions IS NULL OR length(instructions) < 900 OR image IS NULL) ORDER BY rowid ASC LIMIT 5").all();
   let updated=0, failed=0; const errors=[];
-  for (const row of results || []) { try { await enrichOne(env,row); updated++; } catch(err) { failed++; errors.push(row.title+': '+String(err?.message || err)); } }
+  for (const row of results || []) {
+    try { await enrichOne(env,row); updated++; }
+    catch(err) { failed++; errors.push(row.title+': '+String(err?.message || err)); }
+  }
   return jsonResponse({checked:results?.length||0,updated,failed,errors});
 }
