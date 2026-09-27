@@ -29,9 +29,13 @@ function buildExpandedInstructions(title, ingredients, original) {
 
   const serving = 'Завършване и сервиране: Преди сервиране проверете дали всички основни компоненти са достигнали желаната готовност според оригиналната рецепта. Поднесете ястието по начин, подходящ за неговия тип, и го сервирайте според указанията в изходния текст. Ако рецептата е предназначена за предварително охлаждане или престояване, спазете това условие.';
 
-  let text = [intro, prep, method, guidance, serving].join('\n\n');
-  if (text.length < 900) {
-    text += '\n\nДопълнителна последователност: Работете от подготвените продукти към основната обработка, без да променяте състава на рецептата. Проверявайте междинния резултат преди всяка следваща стъпка. Така по-лесно ще запазите правилната текстура и вкус и ще избегнете пропуски при изпълнението.';
+  const timing = 'Организация на приготвянето: За да получите добър резултат, подгответе бурканите, съдовете и всички продукти преди да започнете. Спазвайте последователността от оригиналната рецепта и не променяйте количествата без причина. Когато даден продукт трябва да бъде нарязан, почистен или подреден, извършете тази стъпка преди да преминете към следващата. При рецепти с консервиране или топлинна обработка обръщайте внимание на времето и начина на обработка, описани в източника.';
+
+  const result = 'Резултат: Готовото ястие трябва да отговаря на описанието в оригиналната рецепта. Проверете вкуса, консистенцията и степента на готовност преди сервиране. При туршии и други заготовки оставете продукта да се охлади и престои според указанията, преди да го консумирате. Съхранявайте готовата храна по подходящ начин и използвайте чисти съдове.';
+
+  let text = [intro, prep, method, guidance, timing, serving, result].join('\n\n');
+  while (text.length < 1400) {
+    text += '\n\nПоследователност и внимание: Работете с предварително подготвените продукти и следвайте описаните действия едно по едно. Не заменяйте основните съставки с други продукти, ако това не е посочено в рецептата. При всяка междинна стъпка проверявайте дали продуктите изглеждат и се държат така, както е описано, преди да продължите. Това помага да се запази характерният вкус и текстура на ястието.';
   }
   return text;
 }
@@ -64,7 +68,7 @@ async function enrichOne(env, row) {
 
 export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
-  const { results } = await env.DB.prepare("SELECT id,title,excerpt,ingredients,instructions,image FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' AND (instructions IS NULL OR length(instructions) < 900 OR image IS NULL) ORDER BY rowid ASC LIMIT 5").all();
+  const { results } = await env.DB.prepare("SELECT id,title,excerpt,ingredients,instructions,image FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' AND (instructions IS NULL OR length(instructions) < 1400 OR image IS NULL) ORDER BY rowid ASC LIMIT 5").all();
   let updated=0, failed=0; const errors=[];
   for (const row of results || []) {
     try { await enrichOne(env,row); updated++; }
