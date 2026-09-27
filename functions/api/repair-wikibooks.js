@@ -42,7 +42,8 @@ export async function onRequestPost({ request, env }) {
 
       const commonsImage = await findCommonsImage(recipe.title);
       const fallbackImages = {
-        'Люта туршия': 'https://images.unsplash.com/photo-1562346816-9d0bdd559ec1?auto=format&fit=crop&w=1200&q=85'
+        'Люта туршия': 'https://images.unsplash.com/photo-1562346816-9d0bdd559ec1?auto=format&fit=crop&w=1200&q=85',
+        'Рибарска чорба по свищовски': 'https://commons.wikimedia.org/wiki/Special:FilePath/Fish%20soup.jpg?width=1200'
       };
       const image = commonsImage || fallbackImages[recipe.title] || current?.image || null;
       const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
