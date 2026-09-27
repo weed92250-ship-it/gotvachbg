@@ -40,7 +40,7 @@ function parseIngredients(section) {
         const dash = item.match(/^(.+?)\s+[–—-]\s+(.+)$/);
         if (dash) { measure = dash[1].trim(); name = dash[2].trim(); }
         else {
-          const leading = item.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\s*\d+)?)?|½|1\/2|половин|половина|няколко|една|един|едно)(?:\s+[^,;]+?){0,3})\s+(.+)$/i);
+          const leading = item.match(/^((?:около\s+)?(?:\d+(?:[.,]\d+)?(?:\s*[-–]\s*\d+(?:[.,]\s*\d+)?)?|½|1\/2|половин|половина|няколко|една|един|едно)(?:\s+(?:кг|гр?\.?|г|мл|л|с\.\s*л\.?|ч\.\s*л\.?|бр\.?|вида?|лъжица|лъжици|чаена?\s+лъжица|супена?\s+лъжица|глава|глави|връзка|връзки|стръка?|опашка|опашки|зърно|зърна|средно\s+големи|големи|малки|средни))*)\s+(.+)$/i);
           if (leading) { measure = leading[1].trim(); name = leading[2].trim(); }
         }
         if (name && name.length > 1) ingredients.push({ name, measure });
@@ -512,29 +512,38 @@ async function fetchWikitextBatch(titles) {
 
 export async function findCommonsImage(title) {
   try {
-    const queries = [
-      String(title || '').replace(/^Готварска книга:\s*/i, '').trim(),
-      String(title || '').replace(/^Готварска книга:\s*/i, '').replace(/\s*\([^)]*\)\s*$/,'').trim()
-    ].filter(Boolean);
+    const cleanTitle = String(title || '')
+      .replace(/^Готварска книга:\s*/i, '')
+      .replace(/\s*\([^)]*\)\s*$/,'')
+      .trim();
+    const words = cleanTitle.toLowerCase().split(/\s+/)
+      .filter(w => w.length > 2 && !/^(по|от|за|със|с)$/.test(w));
 
-    for (const query of [...new Set(queries)]) {
-      const data = await apiQuery({
-        action: 'query',
-        generator: 'search',
-        gsrsearch: query + ' food',
-        gsrnamespace: '6',
-        gsrlimit: '1',
-        prop: 'imageinfo',
-        iiprop: 'url',
-        iiurlwidth: '1200'
-      });
+    const data = await apiQuery({
+      action: 'query',
+      generator: 'search',
+      gsrsearch: cleanTitle,
+      gsrnamespace: '6',
+      gsrlimit: '8',
+      prop: 'imageinfo',
+      iiprop: 'url',
+      iiurlwidth: '1200'
+    });
 
-      const pages = Object.values((data && data.query && data.query.pages) || {});
-      const page = pages[0];
-      if (page && page.title && /^File:/i.test(page.title)) {
-        const fileName = page.title.replace(/^File:/i, '');
-        return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
-      }
+    const pages = Object.values((data && data.query && data.query.pages) || {});
+    const scored = pages
+      .filter(p => p && /^File:/i.test(p.title || ''))
+      .map(page => {
+        const name = page.title.replace(/^File:/i, '').toLowerCase();
+        const score = words.reduce((sum, word) => sum + (name.includes(word) ? 1 : 0), 0);
+        return { page, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    const best = scored[0];
+    if (best && best.score >= Math.max(1, Math.ceil(words.length * 0.5))) {
+      const fileName = best.page.title.replace(/^File:/i, '');
+      return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
     }
   } catch (_) {}
   return null;
