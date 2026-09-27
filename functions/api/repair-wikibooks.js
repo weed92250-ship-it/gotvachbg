@@ -23,14 +23,21 @@ export async function onRequestPost({ request, env }) {
       const ingredientsJson = JSON.stringify(recipe.ingredients);
       const current = await env.DB.prepare('SELECT ingredients,instructions,excerpt,image FROM recipes WHERE id=?').bind(row.id).first();
       let malformed=false;
+      let currentIngredients=[];
       try {
-        const currentIngredients=JSON.parse(current?.ingredients || '[]');
+        currentIngredients=JSON.parse(current?.ingredients || '[]');
         malformed=currentIngredients.some(x => String(x?.name||'').length > 120 || /(?:се измиват|се нарязват|се почиства|се разпределя|бурканите се)/i.test(String(x?.name||'')));
       } catch (_) { malformed=true; }
 
+      const normalized = value => JSON.stringify(Array.isArray(value) ? value.map(x => ({
+        name:String(x?.name||'').trim(),
+        measure:String(x?.measure||'').trim()
+      })) : []);
+      const ingredientsChanged = normalized(currentIngredients) !== normalized(recipe.ingredients);
+      const instructionsChanged = String(current?.instructions || '').trim() !== String(recipe.instructions || '').trim();
       const badExcerpt = /(?:продуктите се|чушките се|корнишоните се|лукът се|се измиват|се нарязват)/i.test(String(current?.excerpt || ''));
       const isDefaultImage = String(current?.image || '').includes('photo-1546069901-ba9599a7e63c');
-      const needsRefresh = malformed || badExcerpt || !current?.image || isDefaultImage;
+      const needsRefresh = malformed || ingredientsChanged || instructionsChanged || badExcerpt || !current?.image || isDefaultImage;
       if (!needsRefresh) continue;
 
       const commonsImage = await findCommonsImage(recipe.title);
