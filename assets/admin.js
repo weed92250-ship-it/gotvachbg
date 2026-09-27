@@ -20,3 +20,6 @@ modal.innerHTML='<div style="background:#fff;padding:20px;border-radius:12px;wid
 document.body.appendChild(modal);const textarea=modal.querySelector('#importReport');textarea.value=report;textarea.focus();textarea.select();
 modal.querySelector('#copyImportReport').onclick=async()=>{try{await navigator.clipboard.writeText(report);modal.querySelector('#copyImportReport').textContent='Копирано!'}catch(e){textarea.focus();textarea.select();document.execCommand('copy');modal.querySelector('#copyImportReport').textContent='Копирано!'}};
 modal.querySelector('#closeImportReport').onclick=()=>modal.remove();await load()}catch(e){alert(e.message||'Импортът не успя.')}finally{b.disabled=false;b.textContent='Импортирай български рецепти'}};
+
+
+$('seedEditorial').onclick=async()=>{if(!confirm('Да се добавят/обновят ли 4-те авторски дълги рецепти?'))return;const b=$('seedEditorial');b.disabled=true;b.textContent='Записвам...';try{const res=await api('/api/seed-editorial',{method:'POST',body:'{}'});alert('Готово: '+res.count+' авторски рецепти.');await load()}catch(e){alert(e.message||'Неуспешно записване.')}finally{b.disabled=false;b.textContent='Добави 4 авторски рецепти'}};
