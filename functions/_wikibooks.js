@@ -510,7 +510,7 @@ async function fetchWikitextBatch(titles) {
   return result;
 }
 
-async function findCommonsImage(title) {
+export async function findCommonsImage(title) {
   try {
     const queries = [
       String(title || '').replace(/^Готварска книга:\s*/i, '').trim(),
