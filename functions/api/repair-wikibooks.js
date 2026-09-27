@@ -31,7 +31,7 @@ export async function onRequestPost({ request, env }) {
       if (!malformed) continue;
 
       await env.DB.prepare('UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=? WHERE id=?')
-        .bind(ingredientsJson, recipe.instructions, recipe.time || null, row.id).run();
+        .bind(ingredientsJson, recipe.instructions.slice(0,180), recipe.instructions, recipe.time || null, row.id).run();
       fixed++;
       titles.push(row.title);
       await new Promise(r=>setTimeout(r,150));
