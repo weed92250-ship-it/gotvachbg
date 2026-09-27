@@ -21,7 +21,7 @@ export async function onRequestPost({ request, env }) {
       if (!recipe || recipe.error || !Array.isArray(recipe.ingredients) || recipe.ingredients.length < 2 || !recipe.instructions || recipe.instructions.length < 80) continue;
 
       const ingredientsJson = JSON.stringify(recipe.ingredients);
-      const current = await env.DB.prepare('SELECT ingredients,instructions FROM recipes WHERE id=?').bind(row.id).first();
+      const current = await env.DB.prepare('SELECT ingredients,instructions,excerpt,image FROM recipes WHERE id=?').bind(row.id).first();
       let malformed=false;
       try {
         const currentIngredients=JSON.parse(current?.ingredients || '[]');
@@ -29,10 +29,15 @@ export async function onRequestPost({ request, env }) {
       } catch (_) { malformed=true; }
 
       const badExcerpt = /(?:продуктите се|чушките се|корнишоните се|лукът се|се измиват|се нарязват)/i.test(String(current?.excerpt || ''));
-      const needsRefresh = malformed || badExcerpt || !current?.image;
+      const isDefaultImage = String(current?.image || '').includes('photo-1546069901-ba9599a7e63c');
+      const needsRefresh = malformed || badExcerpt || !current?.image || isDefaultImage;
       if (!needsRefresh) continue;
 
-      const image = await findCommonsImage(recipe.title);
+      const commonsImage = await findCommonsImage(recipe.title);
+      const fallbackImages = {
+        'Люта туршия': 'https://images.unsplash.com/photo-1562346816-9d0bdd559ec1?auto=format&fit=crop&w=1200&q=85'
+      };
+      const image = commonsImage || fallbackImages[recipe.title] || current?.image || null;
       const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
       await env.DB.prepare('UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=?, image=? WHERE id=?')
         .bind(ingredientsJson, excerpt, recipe.instructions, recipe.time || null, image || null, row.id).run();
