@@ -102,10 +102,38 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-async function ensureRecipesLoaded(query = '') {
-  const url = query.trim() ? '/api/recipes?q=' + encodeURIComponent(query.trim()) : '/api/recipes';
-  state.recipes = await fetchJSON(url, { cache: 'no-store' });
+async function ensureRecipesLoaded() {
+  if (state.loaded) return;
+  state.recipes = await fetchJSON('/api/recipes', { cache: 'no-store' });
   state.loaded = true;
+}
+
+function normalizeSearch(value) {
+  return String(value || '')
+    .toLocaleLowerCase('bg-BG')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function recipeMatchesSearch(recipe, query) {
+  const terms = normalizeSearch(query).split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  let ingredients = [];
+  try { ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : []; } catch (_) {}
+  const haystack = normalizeSearch([
+    recipe.title,
+    recipe.titleEn,
+    recipe.excerpt,
+    recipe.instructions,
+    recipe.category,
+    recipe.area,
+    ...(recipe.dietTags || []),
+    recipe.author,
+    recipe.date,
+    ...ingredients.flatMap(i => [i.name, i.measure])
+  ].join(' '));
+  return terms.every(term => haystack.includes(term));
 }
 
 function getAdminKey() { return localStorage.getItem('gotvachbg_admin_key'); }
@@ -126,12 +154,13 @@ function router() {
 
 async function renderHome(app) {
   app.innerHTML = '<p>Зареждане...</p>';
-  await ensureRecipesLoaded(state.search);
+  await ensureRecipesLoaded();
 
   const categories = ['all', ...new Set(state.recipes.map(r => r.category))];
   const diets = ['all', 'кето', 'без захар', 'вегетарианско'];
 
   let list = state.recipes;
+  if (state.search.trim()) list = list.filter(r => recipeMatchesSearch(r, state.search));
   if (state.categoryFilter !== 'all') list = list.filter(r => r.category === state.categoryFilter);
   if (state.dietFilter !== 'all') list = list.filter(r => r.dietTags.includes(state.dietFilter));
 
