@@ -45,7 +45,13 @@ async function enrichOne(env, row) {
   }
   const data=JSON.parse(safeJson);
   if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
-  const image=row.image || await findCommonsImage(row.title);
+  if (!Array.isArray(data.ingredients) || data.ingredients.length < 2) throw new Error('AI не върна валиден списък със съставки');
+  const cleanedIngredients = data.ingredients.map(item => ({
+    name: String(item?.name || '').trim(),
+    measure: String(item?.measure || '').trim()
+  })).filter(item => item.name && item.measure);
+  if (cleanedIngredients.length < 2) throw new Error('AI върна празни или невалидни съставки');
+  const image = await findCommonsImage(row.title) || row.image || null;
   await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),JSON.stringify(cleanedIngredients),String(data.instructions),image,row.id).run();
 }
 
