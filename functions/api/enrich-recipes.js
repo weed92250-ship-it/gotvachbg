@@ -26,8 +26,23 @@ async function enrichOne(env, row) {
   if (raw.startsWith('```')) raw = raw.replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
   const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
   if (a<0 || b<a) throw new Error('AI не върна JSON');
-  const jsonText=raw.slice(a,b+1).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ');
-  const data=JSON.parse(jsonText);
+  const jsonText=raw.slice(a,b+1);
+  let safeJson=''; let inString=false; let escaped=false;
+  for (const ch of jsonText) {
+    const code=ch.charCodeAt(0);
+    if (inString && !escaped && code < 32) {
+      if (ch === '\\n') safeJson += '\\\\n';
+      else if (ch === '\\r') safeJson += '\\\\r';
+      else if (ch === '\\t') safeJson += '\\\\t';
+      else safeJson += ' ';
+      continue;
+    }
+    safeJson += ch;
+    if (ch === '"' && !escaped) inString=!inString;
+    escaped = ch === '\\\\' && !escaped;
+    if (ch !== '\\\\') escaped=false;
+  }
+  const data=JSON.parse(safeJson);
   if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
   const image=row.image || await findCommonsImage(row.title);
   await env.DB.prepare('UPDATE recipes SET excerpt=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),String(data.instructions),image,row.id).run();
