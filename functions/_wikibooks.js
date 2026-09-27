@@ -510,6 +510,36 @@ async function fetchWikitextBatch(titles) {
   return result;
 }
 
+async function findCommonsImage(title) {
+  try {
+    const queries = [
+      String(title || '').replace(/^Готварска книга:\s*/i, '').trim(),
+      String(title || '').replace(/^Готварска книга:\s*/i, '').replace(/\s*\([^)]*\)\s*$/,'').trim()
+    ].filter(Boolean);
+
+    for (const query of [...new Set(queries)]) {
+      const data = await apiQuery({
+        action: 'query',
+        generator: 'search',
+        gsrsearch: query + ' food',
+        gsrnamespace: '6',
+        gsrlimit: '1',
+        prop: 'imageinfo',
+        iiprop: 'url',
+        iiurlwidth: '1200'
+      });
+
+      const pages = Object.values((data && data.query && data.query.pages) || {});
+      const page = pages[0];
+      if (page && page.title && /^File:/i.test(page.title)) {
+        const fileName = page.title.replace(/^File:/i, '');
+        return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 async function listRecipeTitles() {
   const wikitext = await fetchWikitext(INDEX_TITLE);
   const titles = [];
@@ -589,6 +619,8 @@ export async function runWikibooksImport(env, limit = 10) {
         }
 
         const id = 'wb' + Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
+        const image = await findCommonsImage(recipe.title);
+        await sleep(250);
         const date = new Date().toISOString().slice(0, 10);
         const excerpt = recipe.instructions.slice(0, 180);
 
@@ -607,7 +639,7 @@ export async function runWikibooksImport(env, limit = 10) {
           'Българска кухня',
           'Българска',
           dietTagsForIngredients(recipe.ingredients).join(','),
-          null,
+          image,
           null,
           'Уикикниги – Готварска книга',
           date,
