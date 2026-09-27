@@ -28,7 +28,9 @@ export async function onRequestPost({ request, env }) {
         malformed=currentIngredients.some(x => String(x?.name||'').length > 120 || /(?:се измиват|се нарязват|се почиства|се разпределя|бурканите се)/i.test(String(x?.name||'')));
       } catch (_) { malformed=true; }
 
-      if (!malformed) continue;
+      const badExcerpt = /(?:продуктите се|чушките се|корнишоните се|лукът се|се измиват|се нарязват)/i.test(String(current?.excerpt || ''));
+      const needsRefresh = malformed || badExcerpt || !current?.image;
+      if (!needsRefresh) continue;
 
       const image = await findCommonsImage(recipe.title);
       const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
