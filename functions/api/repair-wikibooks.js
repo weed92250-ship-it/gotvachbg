@@ -4,9 +4,15 @@ import { fetchWikitext, parseRecipe, findCommonsImage } from '../_wikibooks.js';
 export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
 
+  let cursor = 0;
+  try {
+    const body = await request.json();
+    cursor = Number(body?.afterRowId || 0) || 0;
+  } catch (_) {}
+
   const { results } = await env.DB.prepare(
-    "SELECT id,source_id,title FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' ORDER BY rowid ASC LIMIT 50"
-  ).all();
+    "SELECT rowid AS row_id,id,source_id,title FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' AND rowid > ? ORDER BY rowid ASC LIMIT 50"
+  ).bind(cursor).all();
 
   let checked=0,fixed=0,failed=0;
   const errors=[],titles=[];
@@ -58,5 +64,14 @@ export async function onRequestPost({ request, env }) {
     }
   }
 
-  return jsonResponse({checked,fixed,failed,titles,errors});
+  const lastRowId = results && results.length ? Number(results[results.length - 1].row_id) : cursor;
+  return jsonResponse({
+    checked,
+    fixed,
+    failed,
+    titles,
+    errors,
+    nextRowId: lastRowId,
+    hasMore: !!(results && results.length === 50)
+  });
 }
