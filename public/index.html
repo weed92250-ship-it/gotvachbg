@@ -136,7 +136,27 @@ async function renderHome(app) {
   if (state.dietFilter !== 'all') list = list.filter(r => r.dietTags.includes(state.dietFilter));
   if (state.search.trim()) {
     const q = state.search.trim().toLowerCase();
-    list = list.filter(r => r.title.toLowerCase().includes(q));
+    const normalize = (value) => String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\\u0300-\\u036f]/g, '')
+      .replace(/й/g, 'и');
+    const terms = normalize(q).split(/\\s+/).filter(Boolean);
+    list = list.filter(r => {
+      const searchable = normalize([
+        r.title,
+        r.titleEn,
+        r.excerpt,
+        r.category,
+        r.area,
+        ...(r.dietTags || []),
+        ...(r.ingredients || []).flatMap(i => [i.name, i.measure]),
+        r.instructions,
+        r.author,
+        r.date,
+      ].join(' '));
+      return terms.every(term => searchable.includes(term));
+    });
   }
 
   const catBtns = categories.map(c =>
