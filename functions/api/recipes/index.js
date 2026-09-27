@@ -1,10 +1,41 @@
 import { checkAuth, unauthorized, jsonResponse, rowToRecipe } from '../../_utils.js';
 
-export async function onRequestGet({ env }) {
+function normalizeSearch(value) {
+  return String(value || '')
+    .toLocaleLowerCase('bg-BG')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/й/g, 'и')
+    .trim();
+}
+
+function matchesSearch(row, query) {
+  const terms = normalizeSearch(query).split(/\\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  let ingredients = [];
+  try { ingredients = JSON.parse(row.ingredients || '[]'); } catch (_) {}
+  const haystack = normalizeSearch([
+    row.title,
+    row.title_en,
+    row.excerpt,
+    row.instructions,
+    row.category,
+    row.area,
+    row.diet_tags,
+    row.author,
+    row.date,
+    ...ingredients.flatMap(i => [i.name, i.measure])
+  ].join(' '));
+  return terms.every(term => haystack.includes(term));
+}
+
+export async function onRequestGet({ env, request }) {
+  const query = new URL(request.url).searchParams.get('q') || '';
   const { results } = await env.DB.prepare(
     'SELECT * FROM recipes ORDER BY date DESC, rowid DESC'
   ).all();
-  return jsonResponse(results.map(rowToRecipe));
+  const filtered = query.trim() ? results.filter(row => matchesSearch(row, query)) : results;
+  return jsonResponse(filtered.map(rowToRecipe), 200, { 'cache-control': 'no-store' });
 }
 
 export async function onRequestPost({ request, env }) {
