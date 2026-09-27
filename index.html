@@ -1,274 +1,73 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="bg">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Класически хрупкави триъгълни банички със сирене и краве масло — Готвач БГ</title>
-    <style>
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background-color: #f7f3ed;
-        color: #4a3b32;
-        margin: 0;
-        padding: 20px;
-        line-height: 1.6;
-    }
-    .container {
-        max-width: 1100px;
-        margin: 0 auto;
-    }
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 25px;
-    }
-    .logo {
-        font-size: 26px;
-        font-weight: bold;
-        color: #a9442a;
-        text-decoration: none;
-    }
-    .search-box input {
-        padding: 8px 16px;
-        border-radius: 20px;
-        border: 1px solid #e2d9cd;
-        background-color: #fbf9f5;
-        width: 220px;
-        font-size: 14px;
-        outline: none;
-    }
-    .filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-    .filter-btn {
-        background-color: #efe8dc;
-        border: none;
-        padding: 6px 14px;
-        border-radius: 16px;
-        color: #6c5c53;
-        font-size: 13px;
-        cursor: pointer;
-    }
-    .filter-btn.active {
-        background-color: #b85d38;
-        color: white;
-    }
-    .main-layout {
-        display: grid;
-        grid-template-columns: 1fr 320px;
-        gap: 25px;
-        margin-top: 20px;
-    }
-    .recipe-card, .static-card {
-        background: white;
-        border-radius: 16px;
-        padding: 35px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-    }
-    .recipe-image {
-        width: 100%;
-        height: 400px;
-        object-fit: cover;
-        border-radius: 12px;
-        margin-bottom: 25px;
-    }
-    .recipe-card h2, .static-card h1 {
-        color: #b85d38;
-        margin-top: 0;
-        font-size: 28px;
-    }
-    .recipe-card h3 {
-        color: #8c3b23;
-        border-bottom: 2px solid #f7f3ed;
-        padding-bottom: 8px;
-        margin-top: 25px;
-    }
-    .recipe-meta {
-        background-color: #fdfaf6;
-        border-left: 4px solid #b85d38;
-        padding: 12px 18px;
-        border-radius: 0 8px 8px 0;
-        font-size: 14px;
-        margin-bottom: 20px;
-    }
-    .recipe-intro {
-        font-size: 16px;
-        font-style: italic;
-        color: #6c5c53;
-    }
-    ul, ol { padding-left: 22px; }
-    li { margin-bottom: 10px; }
-    .sidebar {
-        background: white;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-        height: fit-content;
-    }
-    .sidebar h3 {
-        margin-top: 0;
-        color: #b85d38;
-        font-size: 18px;
-        border-bottom: 2px solid #f7f3ed;
-        padding-bottom: 10px;
-        margin-bottom: 18px;
-    }
-    .similar-item {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 16px;
-        align-items: center;
-    }
-    .similar-item img {
-        width: 70px;
-        height: 70px;
-        border-radius: 10px;
-        object-fit: cover;
-    }
-    .similar-item-info h4 {
-        margin: 0 0 4px 0;
-        font-size: 14px;
-    }
-    .similar-item-info h4 a {
-        color: #4a3b32;
-        text-decoration: none;
-    }
-    .similar-item-info h4 a:hover {
-        color: #b85d38;
-    }
-    .similar-item-info span {
-        font-size: 12px;
-        color: #9c8c83;
-    }
-    footer {
-        text-align: center;
-        margin-top: 40px;
-        padding-top: 20px;
-        border-top: 1px solid #e2d9cd;
-        color: #9c8c83;
-        font-size: 13px;
-    }
-    .footer-links a {
-        color: #6c5c53;
-        text-decoration: none;
-        margin: 0 10px;
-        font-size: 14px;
-    }
-    .footer-links .admin-link {
-        color: #b85d38;
-        font-weight: 600;
-    }
-    @media (max-width: 820px) {
-        .main-layout { grid-template-columns: 1fr; }
-    }
-</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Готвач БГ | Рецепти за всеки ден</title>
+<meta name="description" content="Готвач БГ събира домашни рецепти, идеи за вечеря, закуска, десерти и български ястия на едно място.">
+<link rel="canonical" href="https://gotvachbg.pages.dev/">
+<meta property="og:title" content="Готвач БГ | Рецепти за всеки ден">
+<meta property="og:description" content="Намери рецепта според това, което ти се хапва днес.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="/assets/site.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <a href="/" class="logo">Готвач БГ</a>
-            <div class="search-box">
-                <input type="text" placeholder="Търси рецепта...">
-            </div>
-        </div>
+<header class="topbar"><div class="wrap nav">
+<a class="logo" href="/">Готвач БГ</a>
+<nav class="navlinks" aria-label="Основна навигация">
+<a href="#recipes">Рецепти</a><a href="#categories">Категории</a><a href="/about.html">За нас</a><a href="/contacts.html">Контакти</a>
+</nav>
+</div></header>
 
-        <div class="filters">
-            <button class="filter-btn active">Всички кухни</button>
-            <button class="filter-btn">Агнешко</button>
-            <button class="filter-btn">Гарнитура</button>
-            <button class="filter-btn">Закуска</button>
-        </div>
-        <div class="filters">
-            <button class="filter-btn active">Всички диети</button>
-            <button class="filter-btn">кето</button>
-            <button class="filter-btn">без захар</button>
-            <button class="filter-btn">Вегетарианско</button>
-        </div>
+<main>
+<section class="hero"><div class="wrap hero-grid">
+<div>
+<span class="eyebrow">Домашна кухня</span>
+<h1>Какво ще сготвим днес?</h1>
+<p>Търси рецепта по име и открий идеи за закуска, обяд, вечеря и десерт.</p>
+<form id="searchForm" class="search" role="search">
+<input id="siteSearch" type="search" placeholder="Например: баница, пица, джолан..." aria-label="Търси рецепта">
+<button class="btn btn-primary" type="submit">Търси</button>
+</form>
+</div>
+<div class="hero-card">
+<img src="https://www.themealdb.com/images/media/meals/x0lk931587671540.jpg" alt="Пица Маргарита">
+<div class="caption"><strong>Идея за днес: класическа Маргарита</strong><span>Доматен сос, моцарела и босилек.</span></div>
+</div>
+</div></section>
 
-        <div class="main-layout">
-            <div class="main-content">
-                <div class="recipe-card">
-                    <img src="[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)Bulgarian%20cheese%20pastry%20banitsa%20golden%20crispy%20fresh%20baked%20food%20photography?width=800&height=450&nologo=true" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1601050690597-df0568f70950?w=800&auto=format&fit=crop';" alt="Класически хрупкави триъгълни банички със сирене и краве масло" class="recipe-image">
-                    <h2>Класически хрупкави триъгълни банички със сирене и краве масло</h2>
-        <p class="recipe-meta">⏱️ <strong>Подготовка:</strong> 20 мин | ⏱️ <strong>Готвене:</strong> 25 мин | 🍽️ <strong>Порции:</strong> 4 | 📊 <strong>Сложност:</strong> Лесна</p>
+<section id="searchPanel" class="section search-panel" hidden><div class="wrap">
+<div class="section-head"><div><h2>Резултати от търсенето</h2><p id="searchStatus"></p></div></div>
+<div id="searchGrid" class="grid"></div>
+</div></section>
 
-        <p class="recipe-intro">Няма нищо по-уютно от уханието на прясно изпечени триъгълни банички с домашно сирене и масло. Тази рецепта съчетава хрупкава коричка с изключително сочна и пухкава плънка — идеалната закуска за цялото семейство!</p>
+<section id="categories" class="section"><div class="wrap">
+<div class="section-head"><div><h2>Категории</h2><p>Избери посока и продължи към рецептите.</p></div></div>
+<div id="homeFilters" class="chips" aria-label="Филтри за рецепти"></div><div class="chips" style="margin-top:10px">
+<button class="chip" data-search="банички">Закуска</button>
+<button class="chip" data-search="джолан">Основни ястия</button>
+<a class="chip" href="#recipes">Домашна кухня</a>
+<a class="chip" href="#recipes">Бързи рецепти</a>
+<a class="chip" href="#recipes">Българска кухня</a>
+<a class="chip" href="#recipes">Десерти</a>
+</div>
+</div></section>
 
-        <h3>🛒 Необходими продукти:</h3>
-        <ul>
-            <li><strong>1 пакет (400 г)</strong> фини кори за баница (найнапред извадени на стайна температура)</li>
-            <li><strong>350 г</strong> българско бяло саламурено сирене (по-зряло за наситен вкус)</li>
-            <li><strong>3 бр.</strong> големи яйца (размер L)</li>
-            <li><strong>120 г</strong> качествено краве масло (разтопено)</li>
-            <li><strong>4 с.л.</strong> пълномаслено кисело мляко (3.6% или повече)</li>
-            <li><strong>1/2 ч.л.</strong> сода за хляб (за шупване на млякото)</li>
-            <li><strong>1 с.л.</strong> газирана вода или олио (за допълнителна хрупкавост)</li>
-        </ul>
+<section id="recipes" class="section"><div class="wrap">
+<div class="section-head"><div><h2>Рецепти</h2><p>Подбрани идеи от текущата колекция на Готвач БГ.</p></div><a class="link" href="#searchForm">Търси рецепта →</a></div>
+<div id="recipeGrid" class="grid"></div>
+</div></section>
 
-        <h3>👩‍🍳 Подробен начин на приготвяне:</h3>
-        <ol>
-            <li><strong>Приготвяне на сочната плънка:</strong> В дълбока купа разбийте яйцата. Добавете киселото мляко, в което предварително сте разбъркали содата да шупне. Натрошете сиренето на средно големи парчета (не на каша, за да се усеща) и разбъркайте хомогенно.</li>
-            <li><strong>Подготовка на корите:</strong> Разстелете пакета с кори върху чиста и суха повърхност. Нарежете ги по дължина на равни ленти с ширина около 8–10 см. За всяка баничка използвайте по 2 слепени ленти за по-добра плътност.</li>
-            <li><strong>Оформяне на триъгълниците:</strong> Вземете една двойна лента кори, намажете я леко с разтопено краве масло с помощта на четка. В единия край поставете 1 пълна супена лъжица от сиренената смес. Прегънете ъгъла по диагонал върху плънката, образувайки триъгълник. Продължете да сгъвате зигзагообразно до края на лентата.</li>
-            <li><strong>Подредба и намазване:</strong> Подредете оформените триъгълници в тава, покрита с хартия за печене. Намажете обилно всяка баничка отгоре с останалото разтопено масло (или разбита смес от жълтък и малко масло).</li>
-            <li><strong>Печене:</strong> Печете в предварително загрята фурна на 190°C (на горен и долен нагревател) за 20–25 минути, докато баничките придобият апетитен златисто-кафяв цвят и станат изключително хрупкави.</li>
-        </ol>
+<section class="section"><div class="wrap"><div class="cta">
+<div><h2>Не знаеш какво да сготвиш?</h2><p>Напиши продукт или ястие в търсачката и започни оттам.</p></div>
+<a class="btn btn-primary" href="#searchForm">Към търсенето</a>
+</div></div></section>
+</main>
 
-        <h3>💡 Тайните на шеф-готвача:</h3>
-        <ul>
-            <li><strong>Стайна температура:</strong> Никога не работете със студени кори директно от хладилника — те се чупят лесно. Извадете ги поне 20 минути предварително.</li>
-            <li><strong>За запазване на хрупкавостта:</strong> След изваждане от фурната НЕ покривайте баничките с кърпа, за да не омекнат от парата. Оставете ги да „поемат въздух“ на решетка.</li>
-        </ul>
-
-        <h3>🍷 С какво да сервираме:</h3>
-        <p>Поднесете ги горещи с чаша студена айрян, домашно кисело мляко или свеж доматен сок.</p>
-        
-                </div>
-            </div>
-
-            <aside class="sidebar">
-                <h3>Подобни рецепти</h3>
-                
-        <div class="similar-item">
-            <img src="https://www.themealdb.com/images/media/meals/x0lk931587671540.jpg" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop';" alt="Класически хрупкави триъгълни банички със сирене">
-            <div class="similar-item-info">
-                <h4><a href="/recipes/klasicheski-hrupkavi-triagalni-banichki-sas-sirene.html">Класически хрупкави триъгълни банички със сирене</a></h4>
-                <span>⏱️ 30 мин</span>
-            </div>
-        </div>
-        
-        <div class="similar-item">
-            <img src="https://www.themealdb.com/images/media/meals/x0lk931587671540.jpg" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop';" alt="Кралски свински джолан на бавен огън с тъмна бира, розмарин и карамелизирани кореноплодни">
-            <div class="similar-item-info">
-                <h4><a href="/recipes/kralski-svinski-dzholan-na-baven-ogan-s-tamna-bira-rozmarin-i-karamelizirani-korenoplodni.html">Кралски свински джолан на бавен огън с тъмна бира, розмарин и карамелизирани кореноплодни</a></h4>
-                <span>⏱️ 45 мин</span>
-            </div>
-        </div>
-        
-        <div class="similar-item">
-            <img src="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=1000&auto=format&fit=crop&q=85" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&auto=format&fit=crop';" alt="Боб чорба по домашному">
-            <div class="similar-item-info">
-                <h4><a href="/recipes/bob-chorba.html">Боб чорба по домашному</a></h4>
-                <span>⏱️ 90 мин</span>
-            </div>
-        </div>
-        
-            </aside>
-        </div>
-
-        <footer>
-            <div class="footer-links">
-                <a href="/about.html">За нас</a> |
-                <a href="/contacts.html">Контакти</a> |
-                <a href="/privacy.html">Поверителност</a> |
-                <a href="/admin" class="admin-link">Админ</a>
-            </div>
-            <p>© GotvachBG. Всички права запазени.</p>
-        </footer>
-    </div>
+<footer class="footer"><div class="wrap footer-row">
+<div>© 2026 Готвач БГ</div>
+<div class="footer-links"><a href="/about.html">За нас</a><a href="/contacts.html">Контакти</a><a href="/privacy.html">Поверителност</a><a class="admin" href="/admin">Админ</a></div>
+</div></footer>
+<script src="/assets/home.js" defer></script>
 </body>
 </html>
