@@ -38,7 +38,7 @@ const recipes = [
     time:'25 минути',
     category:'Предястия',
     area:'Българска кухня',
-    image:'/images/kokteyl-ot-skaridi.svg'
+    image:'https://cdn.pixabay.com/photo/2016/09/14/20/46/shrimp-cocktail-1670404_1280.jpg'
   },
   {
     source_id: 'editorial:tikveni-kyufteta-po-shopski',
@@ -76,7 +76,7 @@ const recipes = [
     time:'35 минути',
     category:'Аламинути',
     area:'Българска кухня',
-    image:'/images/tikveni-kyufteta.svg'
+    image:'https://images.pexels.com/photos/20220704/pexels-photo-20220704.jpeg?cs=srgb&dl=pexels-su-la-pyae-54514809-20220704.jpg&fm=jpg'
   },
   {
     source_id: 'editorial:kavarma-kebap',
@@ -116,7 +116,7 @@ const recipes = [
     time:'1 час и 15 минути',
     category:'Основни ястия',
     area:'Българска кухня',
-    image:'/images/kavarma-kebap.svg'
+    image:'https://images.pexels.com/photos/27846446/pexels-photo-27846446.jpeg?cs=srgb&dl=pexels-kuiyibo-27846446.jpg&fm=jpg'
   },
   {
     source_id: 'editorial:pala4inki',
@@ -156,7 +156,7 @@ const recipes = [
     time:'35 минути',
     category:'Закуски и десерти',
     area:'Българска кухня',
-    image:'/images/palachinki.svg'
+    image:'https://cdn.pixabay.com/photo/2019/02/07/17/51/pancakes-3981762_1280.jpg'
   }
 ];
 
