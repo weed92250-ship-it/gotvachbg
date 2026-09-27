@@ -267,7 +267,7 @@ function extractIngredientsFromProse(text) {
   return found;
 }
 
-function parseRecipe(title, wikitext) {
+export function parseRecipe(title, wikitext) {
   const source = String(wikitext || '');
   const legacy = extractLegacyRecipe(source);
   const hasIngredientMarker = /(?:^|\n)\s*(?:#+\s*)?(?:продукти|необходими продукти)\s*:?/im.test(source)
@@ -364,7 +364,7 @@ async function apiQuery(params, attempts = 4) {
   throw new Error('Wikibooks API: 429 Too Many Requests след повторни опити');
 }
 
-async function fetchWikitext(title) {
+export async function fetchWikitext(title) {
   // Prefer query/revisions because it exposes normalized titles and redirects
   // more reliably for older Wikibooks pages than action=parse.
   const variants = titleVariants(title);
