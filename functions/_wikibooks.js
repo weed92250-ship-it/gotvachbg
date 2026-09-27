@@ -33,6 +33,15 @@ function parseIngredients(section) {
     for (let value of values) {
       value = cleanWikiText(value).trim();
       if (!value || /^за\s+.+:\s*$/i.test(value) || /^необходими продукти:?$/i.test(value)) continue;
+      const wholeKinds = value.match(/^(\d+)\s+вида\s+([^:]+):\s*(.+)$/i);
+      if (wholeKinds) {
+        ingredients.push({
+          name: wholeKinds[2].trim() + ': ' + wholeKinds[3].trim(),
+          measure: wholeKinds[1].trim() + ' вида'
+        });
+        continue;
+      }
+
       for (const part of value.split(/[;,](?=\s|$)/)) {
         const item = part.trim();
         if (!item || item.length < 2) continue;
