@@ -102,9 +102,9 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-async function ensureRecipesLoaded() {
-  if (state.loaded) return;
-  state.recipes = await fetchJSON('/api/recipes');
+async function ensureRecipesLoaded(query = '') {
+  const url = query.trim() ? '/api/recipes?q=' + encodeURIComponent(query.trim()) : '/api/recipes';
+  state.recipes = await fetchJSON(url, { cache: 'no-store' });
   state.loaded = true;
 }
 
@@ -126,7 +126,7 @@ function router() {
 
 async function renderHome(app) {
   app.innerHTML = '<p>Зареждане...</p>';
-  await ensureRecipesLoaded();
+  await ensureRecipesLoaded(state.search);
 
   const categories = ['all', ...new Set(state.recipes.map(r => r.category))];
   const diets = ['all', 'кето', 'без захар', 'вегетарианско'];
@@ -134,30 +134,7 @@ async function renderHome(app) {
   let list = state.recipes;
   if (state.categoryFilter !== 'all') list = list.filter(r => r.category === state.categoryFilter);
   if (state.dietFilter !== 'all') list = list.filter(r => r.dietTags.includes(state.dietFilter));
-  if (state.search.trim()) {
-    const q = state.search.trim().toLowerCase();
-    const normalize = (value) => String(value || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\\u0300-\\u036f]/g, '')
-      .replace(/й/g, 'и');
-    const terms = normalize(q).split(/\\s+/).filter(Boolean);
-    list = list.filter(r => {
-      const searchable = normalize([
-        r.title,
-        r.titleEn,
-        r.excerpt,
-        r.category,
-        r.area,
-        ...(r.dietTags || []),
-        ...(r.ingredients || []).flatMap(i => [i.name, i.measure]),
-        r.instructions,
-        r.author,
-        r.date,
-      ].join(' '));
-      return terms.every(term => searchable.includes(term));
-    });
-  }
+
 
   const catBtns = categories.map(c =>
     `<button class="filter-btn ${state.categoryFilter === c ? 'active' : ''}" data-cat="${escapeHtml(c)}">${c === 'all' ? 'Всички кухни' : escapeHtml(c)}</button>`
@@ -414,9 +391,14 @@ async function renderRecipeForm(app, key, id) {
   };
 }
 
+let searchTimer;
 document.getElementById('searchInput').addEventListener('input', (e) => {
   state.search = e.target.value;
-  if (!location.hash.startsWith('#/recipe/') && location.hash !== '#/admin') router();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.loaded = false;
+    if (!location.hash.startsWith('#/recipe/') && location.hash !== '#/admin') router();
+  }, 180);
 });
 
 window.addEventListener('hashchange', router);
