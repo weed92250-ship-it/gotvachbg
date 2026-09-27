@@ -6,6 +6,14 @@ function extractText(aiResponse) {
   return '';
 }
 
+function cleanOriginalIngredients(ingredients) {
+  const verbs = /\\b(измив|измий|отряз|наряз|нареж|слаг|постав|добав|залив|вар|печ|запърж|разбърк|остав|подреж|прехвърл|смес|охлад|стерилиз|затвор|пълн|загр|кипн|престоя)\\w*/i;
+  return (Array.isArray(ingredients) ? ingredients : []).map(item => ({
+    name: String(item?.name || '').trim(),
+    measure: String(item?.measure || '').trim()
+  })).filter(item => item.name && item.measure && !verbs.test(item.name + ' ' + item.measure));
+}
+
 async function findCommonsImage(title) {
   try {
     const data = await fetch('https://commons.wikimedia.org/w/api.php?' + new URLSearchParams({ action:'query', generator:'search', gsrsearch:title+' food', gsrnamespace:'6', gsrlimit:'1', prop:'imageinfo', iiprop:'url', iiurlwidth:'1200', format:'json', origin:'*' }), { headers:{'user-agent':'GotvachBG/1.0 (recipe enrichment)'} }).then(r=>r.json());
@@ -45,12 +53,14 @@ async function enrichOne(env, row) {
   }
   const data=JSON.parse(safeJson);
   if (!data.instructions || String(data.instructions).length<900) throw new Error('Текстът е твърде кратък');
-  if (!Array.isArray(data.ingredients) || data.ingredients.length < 2) throw new Error('AI не върна валиден списък със съставки');
-  const cleanedIngredients = data.ingredients.map(item => ({
-    name: String(item?.name || '').trim(),
-    measure: String(item?.measure || '').trim()
-  })).filter(item => item.name && item.measure);
-  if (cleanedIngredients.length < 2) throw new Error('AI върна празни или невалидни съставки');
+  let cleanedIngredients = Array.isArray(data.ingredients)
+    ? data.ingredients.map(item => ({
+        name: String(item?.name || '').trim(),
+        measure: String(item?.measure || '').trim()
+      })).filter(item => item.name && item.measure)
+    : [];
+  if (cleanedIngredients.length < 2) cleanedIngredients = cleanOriginalIngredients(ingredients);
+  if (cleanedIngredients.length < 2) throw new Error('Не успях да възстановя валиден списък със съставки');
   const image = await findCommonsImage(row.title) || row.image || null;
   await env.DB.prepare('UPDATE recipes SET excerpt=?, ingredients=?, instructions=?, image=? WHERE id=?').bind(String(data.excerpt || row.excerpt).slice(0,500),JSON.stringify(cleanedIngredients),String(data.instructions),image,row.id).run();
 }
