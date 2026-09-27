@@ -1,5 +1,5 @@
 import { jsonResponse, checkAuth, unauthorized } from '../_utils.js';
-import { fetchWikitext, parseRecipe } from '../_wikibooks.js';
+import { fetchWikitext, parseRecipe, findCommonsImage } from '../_wikibooks.js';
 
 export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
@@ -30,8 +30,10 @@ export async function onRequestPost({ request, env }) {
 
       if (!malformed) continue;
 
-      await env.DB.prepare('UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=? WHERE id=?')
-        .bind(ingredientsJson, recipe.instructions.slice(0,180), recipe.instructions, recipe.time || null, row.id).run();
+      const image = await findCommonsImage(recipe.title);
+      const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
+      await env.DB.prepare('UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=?, image=? WHERE id=?')
+        .bind(ingredientsJson, excerpt, recipe.instructions, recipe.time || null, image || null, row.id).run();
       fixed++;
       titles.push(row.title);
       await new Promise(r=>setTimeout(r,150));
