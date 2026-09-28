@@ -32,7 +32,7 @@ function matchesSearch(row, query) {
 export async function onRequestGet({ env, request }) {
   const query = new URL(request.url).searchParams.get('q') || '';
   const { results } = await env.DB.prepare(
-    'SELECT * FROM recipes ORDER BY date DESC, rowid DESC'
+    'SELECT * FROM recipes ORDER BY featured DESC, date DESC, rowid DESC'
   ).all();
   const filtered = query.trim() ? results.filter(row => matchesSearch(row, query)) : results;
   return jsonResponse(filtered.map(rowToRecipe), 200, { 'cache-control': 'no-store' });
