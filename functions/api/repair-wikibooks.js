@@ -1,6 +1,11 @@
 import { jsonResponse, checkAuth, unauthorized } from '../_utils.js';
 import { fetchWikitext, parseRecipe, findCommonsImage } from '../_wikibooks.js';
 
+const badImage = value => {
+  const image = String(value || '');
+  return !image || image.includes('photo-1546069901-ba9599a7e63c') || image.includes('pollinations.ai') || image.includes('[https://');
+};
+
 export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
 
@@ -11,56 +16,78 @@ export async function onRequestPost({ request, env }) {
   } catch (_) {}
 
   const { results } = await env.DB.prepare(
-    "SELECT rowid AS row_id,id,source_id,title FROM recipes WHERE source_id LIKE 'wikibooks:%' AND id NOT LIKE 'editorial-%' AND rowid > ? ORDER BY rowid ASC LIMIT 50"
+    "SELECT rowid AS row_id,id,source_id,title FROM recipes WHERE id NOT LIKE 'editorial-%' AND rowid > ? ORDER BY rowid ASC LIMIT 50"
   ).bind(cursor).all();
 
-  let checked=0,fixed=0,failed=0;
-  const errors=[],titles=[];
+  let checked = 0, fixed = 0, failed = 0;
+  const errors = [], titles = [];
 
   for (const row of results || []) {
     checked++;
     try {
-      const sourceTitle = row.source_id.slice('wikibooks:'.length);
-      const wiki = await fetchWikitext(sourceTitle);
-      if (!wiki) continue;
-      const recipe = parseRecipe(sourceTitle, wiki);
-      if (!recipe || recipe.error || !Array.isArray(recipe.ingredients) || recipe.ingredients.length < 2 || !recipe.instructions || recipe.instructions.length < 80) continue;
+      const current = await env.DB.prepare(
+        'SELECT ingredients,instructions,excerpt,image FROM recipes WHERE id=?'
+      ).bind(row.id).first();
 
-      const ingredientsJson = JSON.stringify(recipe.ingredients);
-      const current = await env.DB.prepare('SELECT ingredients,instructions,excerpt,image FROM recipes WHERE id=?').bind(row.id).first();
-      let malformed=false;
-      let currentIngredients=[];
-      try {
-        currentIngredients=JSON.parse(current?.ingredients || '[]');
-        malformed=currentIngredients.some(x => String(x?.name||'').length > 120 || /(?:се измиват|се нарязват|се почиства|се разпределя|бурканите се)/i.test(String(x?.name||'')));
-      } catch (_) { malformed=true; }
+      const sourceIsWikibooks = String(row.source_id || '').startsWith('wikibooks:');
+      const imageNeedsFix = badImage(current?.image);
 
-      const normalized = value => JSON.stringify(Array.isArray(value) ? value.map(x => ({
-        name:String(x?.name||'').trim(),
-        measure:String(x?.measure||'').trim()
-      })) : []);
-      const ingredientsChanged = normalized(currentIngredients) !== normalized(recipe.ingredients);
-      const instructionsChanged = String(current?.instructions || '').trim() !== String(recipe.instructions || '').trim();
-      const badExcerpt = /(?:продуктите се|чушките се|корнишоните се|лукът се|се измиват|се нарязват)/i.test(String(current?.excerpt || ''));
-      const isDefaultImage = String(current?.image || '').includes('photo-1546069901-ba9599a7e63c');
-      const needsRefresh = malformed || ingredientsChanged || instructionsChanged || badExcerpt || !current?.image || isDefaultImage;
-      if (!needsRefresh) continue;
+      if (!sourceIsWikibooks && !imageNeedsFix) continue;
 
-      const commonsImage = await findCommonsImage(recipe.title);
-      const fallbackImages = {
-        'Люта туршия': 'https://images.unsplash.com/photo-1562346816-9d0bdd559ec1?auto=format&fit=crop&w=1200&q=85',
-        'Рибарска чорба по свищовски': 'https://commons.wikimedia.org/wiki/Special:FilePath/Fish%20soup.jpg?width=1200'
-      };
-      const image = commonsImage || fallbackImages[recipe.title] || current?.image || null;
-      const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
-      await env.DB.prepare('UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=?, image=? WHERE id=?')
-        .bind(ingredientsJson, excerpt, recipe.instructions, recipe.time || null, image || null, row.id).run();
-      fixed++;
-      titles.push(row.title);
-      await new Promise(r=>setTimeout(r,150));
+      let changed = false;
+
+      if (sourceIsWikibooks) {
+        const sourceTitle = row.source_id.slice('wikibooks:'.length);
+        const wiki = await fetchWikitext(sourceTitle);
+
+        if (wiki) {
+          const recipe = parseRecipe(sourceTitle, wiki);
+          if (recipe && !recipe.error && Array.isArray(recipe.ingredients) &&
+              recipe.ingredients.length >= 2 && recipe.instructions && recipe.instructions.length >= 80) {
+
+            let currentIngredients = [];
+            try { currentIngredients = JSON.parse(current?.ingredients || '[]'); } catch (_) {}
+
+            const normalized = value => JSON.stringify(Array.isArray(value) ? value.map(x => ({
+              name: String(x?.name || '').trim(),
+              measure: String(x?.measure || '').trim()
+            })) : []);
+
+            const malformed = currentIngredients.some(x =>
+              String(x?.name || '').length > 120 ||
+              /(?:се измиват|се нарязват|се почиства|се разпределя|бурканите се)/i.test(String(x?.name || ''))
+            );
+            const ingredientsChanged = normalized(currentIngredients) !== normalized(recipe.ingredients);
+            const instructionsChanged = String(current?.instructions || '').trim() !== String(recipe.instructions || '').trim();
+            const badExcerpt = /(?:продуктите се|чушките се|корнишоните се|лукът се|се измиват|се нарязват)/i.test(String(current?.excerpt || ''));
+
+            if (malformed || ingredientsChanged || instructionsChanged || badExcerpt) {
+              const excerpt = 'Домашна рецепта за „' + recipe.title + '“. Подробни продукти и начин на приготвяне от източника в Уикикниги.';
+              await env.DB.prepare(
+                'UPDATE recipes SET ingredients=?, excerpt=?, instructions=?, time=? WHERE id=?'
+              ).bind(JSON.stringify(recipe.ingredients), excerpt, recipe.instructions, recipe.time || null, row.id).run();
+              changed = true;
+            }
+          }
+        }
+      }
+
+      if (imageNeedsFix) {
+        const commonsImage = await findCommonsImage(row.title);
+        if (commonsImage) {
+          await env.DB.prepare('UPDATE recipes SET image=? WHERE id=?').bind(commonsImage, row.id).run();
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        fixed++;
+        titles.push(row.title);
+        await new Promise(r => setTimeout(r, 150));
+      }
     } catch (err) {
       failed++;
-      errors.push(row.title+': '+String(err?.message||err));
+      errors.push(row.title + ': ' + String(err?.message || err));
     }
   }
 
