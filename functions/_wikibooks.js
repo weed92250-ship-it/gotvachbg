@@ -551,13 +551,14 @@ export async function findCommonsImage(title) {
     .toLowerCase()
     .replace(/[^a-zа-я0-9\s-]/gi, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2 && !/^(по|от|за|със|с|и|на|в|за|the|and|with|from|of)$/.test(w));
+    .filter(w => w.length > 2 && !/^(по|от|за|със|с|и|на|в|the|and|with|from|of)$/.test(w));
 
-  const queries = [{ text: cleanTitle, source: 'bg' }];
+  const queries = [cleanTitle];
+  const bgWords = normalizeWords(cleanTitle);
+  if (bgWords.length >= 2) queries.push(bgWords.slice(0, 3).join(' '));
 
-  // Find the Wikidata item for the Bulgarian dish, then fetch its English
-  // label separately. wbsearchentities(language=bg) does not guarantee that
-  // item.label is English even when uselang=en is supplied.
+  // Wikidata often knows the English name even when Commons does not index
+  // the Bulgarian recipe title.
   try {
     const wdSearchUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
       action: 'wbsearchentities',
@@ -575,74 +576,89 @@ export async function findCommonsImage(title) {
         const entityUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
           action: 'wbgetentities',
           ids: ids.join('|'),
-          props: 'labels|sitelinks',
+          props: 'labels',
           languages: 'en|bg',
           format: 'json',
           origin: '*'
         });
         const entityRes = await fetch(entityUrl, { headers: { 'user-agent': 'GotvachBG/1.0' } });
         if (entityRes.ok) {
-          const entityData = await entityRes.json();
+          const data = await entityRes.json();
           for (const id of ids) {
-            const entity = entityData.entities && entityData.entities[id];
-            const label = entity && entity.labels && entity.labels.en && entity.labels.en.value;
-            if (label && !queries.some(q => q.text.toLowerCase() === label.toLowerCase())) {
-              queries.push({ text: label, source: 'wikidata-en' });
-            }
+            const label = data.entities?.[id]?.labels?.en?.value;
+            if (label) queries.push(label);
           }
         }
       }
     }
   } catch (_) {}
 
-  // Also try a compact Bulgarian query. This catches Commons files whose
-  // filenames use Bulgarian words instead of the Wikidata English label.
-  const bgWords = normalizeWords(cleanTitle);
-  if (bgWords.length >= 2) {
-    queries.push({ text: bgWords.slice(0, 3).join(' '), source: 'bg-short' });
-  }
+  const uniqueQueries = [...new Set(queries.map(x => String(x).trim()).filter(Boolean))].slice(0, 6);
 
-  let bestOverall = null;
-
-  for (const query of queries.slice(0, 8)) {
+  // Wikimedia's REST search endpoint is more tolerant than the MediaWiki
+  // generator search for food filenames. It also gives us the actual file
+  // page key, which we can safely turn into a Special:FilePath URL.
+  for (const query of uniqueQueries) {
     try {
-      const data = await apiQuery({
-        action: 'query',
-        generator: 'search',
-        gsrsearch: query.text,
-        gsrnamespace: '6',
-        gsrlimit: '20',
-        prop: 'imageinfo',
-        iiprop: 'url',
-        iiurlwidth: '1200'
-      });
+      const url = 'https://commons.wikimedia.org/w/rest.php/v1/search/page?' +
+        new URLSearchParams({ q: query, limit: '10' });
+      const res = await fetch(url, { headers: { 'user-agent': 'GotvachBG/1.0' } });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const pages = Array.isArray(data?.pages) ? data.pages : [];
+      const queryWords = normalizeWords(query);
 
-      const pages = Array.isArray(data && data.query && data.query.pages)
-        ? data.query.pages
-        : Object.values((data && data.query && data.query.pages) || {});
-
-      const queryWords = normalizeWords(query.text);
+      let best = null;
       for (const page of pages) {
-        if (!page || !/^File:/i.test(page.title || '')) continue;
-        const name = page.title.replace(/^File:/i, '').toLowerCase();
-        const matched = queryWords.filter(word => name.includes(word)).length;
-        const exactPhrase = name.includes(query.text.toLowerCase()) ? 5 : 0;
-        const sourceBonus = query.source === 'wikidata-en' ? 3 : 0;
-        const score = matched + exactPhrase + sourceBonus;
+        const key = String(page?.key || '');
+        const titleText = String(page?.title || key).toLowerCase();
+        if (!key || !/^File:/i.test(key)) continue;
 
-        if (!bestOverall || score > bestOverall.score) {
-          bestOverall = { page, score, query };
-        }
+        const matched = queryWords.filter(word => titleText.includes(word)).length;
+        const exact = titleText.includes(query.toLowerCase()) ? 5 : 0;
+        const score = matched + exact;
+
+        if (!best || score > best.score) best = { key, score };
+      }
+
+      if (best && best.score >= 1) {
+        const fileName = best.key.replace(/^File:/i, '');
+        return 'https://commons.wikimedia.org/wiki/Special:FilePath/' +
+          encodeURIComponent(fileName) + '?width=1200';
       }
     } catch (_) {}
   }
 
-  // Require a meaningful match. For Wikidata-derived English labels, at least
-  // the label/one keyword must occur in the filename; never use a random image.
-  if (bestOverall && bestOverall.score >= 4) {
-    const fileName = bestOverall.page.title.replace(/^File:/i, '');
-    return 'https://commons.wikimedia.org/wiki/Special:FilePath/' +
-      encodeURIComponent(fileName) + '?width=1200';
+  // Keep the old API as a fallback for Commons installations where REST
+  // search is unavailable.
+  for (const query of uniqueQueries) {
+    try {
+      const data = await apiQuery({
+        action: 'query',
+        generator: 'search',
+        gsrsearch: query,
+        gsrnamespace: '6',
+        gsrlimit: '10',
+        prop: 'imageinfo',
+        iiprop: 'url',
+        iiurlwidth: '1200'
+      });
+      const pages = Array.isArray(data?.query?.pages)
+        ? data.query.pages
+        : Object.values(data?.query?.pages || {});
+      const queryWords = normalizeWords(query);
+
+      for (const page of pages) {
+        if (!page || !/^File:/i.test(page.title || '')) continue;
+        const name = page.title.replace(/^File:/i, '').toLowerCase();
+        const matched = queryWords.filter(word => name.includes(word)).length;
+        if (matched >= 1) {
+          const fileName = page.title.replace(/^File:/i, '');
+          return 'https://commons.wikimedia.org/wiki/Special:FilePath/' +
+            encodeURIComponent(fileName) + '?width=1200';
+        }
+      }
+    } catch (_) {}
   }
 
   return null;
