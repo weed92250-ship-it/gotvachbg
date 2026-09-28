@@ -10,9 +10,11 @@ export async function onRequestPost({ request, env }) {
   if (!(await checkAuth(request, env))) return unauthorized();
 
   let cursor = 0;
+  let forceImages = false;
   try {
     const body = await request.json();
     cursor = Number(body?.afterRowId || 0) || 0;
+    forceImages = body?.forceImages === true;
   } catch (_) {}
 
   const { results } = await env.DB.prepare(
@@ -31,8 +33,9 @@ export async function onRequestPost({ request, env }) {
 
       const sourceIsWikibooks = String(row.source_id || '').startsWith('wikibooks:');
       const imageNeedsFix = badImage(current?.image);
+      const shouldRefreshImage = forceImages || imageNeedsFix;
 
-      if (!sourceIsWikibooks && !imageNeedsFix) continue;
+      if (!sourceIsWikibooks && !shouldRefreshImage) continue;
 
       let changed = false;
 
@@ -72,12 +75,13 @@ export async function onRequestPost({ request, env }) {
         }
       }
 
-      if (imageNeedsFix) {
+      if (shouldRefreshImage) {
         const commonsImage = await findCommonsImage(row.title);
-        if (commonsImage) {
+        if (commonsImage && commonsImage !== current?.image) {
           await env.DB.prepare('UPDATE recipes SET image=? WHERE id=?').bind(commonsImage, row.id).run();
           changed = true;
         }
+        await new Promise(r => setTimeout(r, 150));
       }
 
       if (changed) {
