@@ -1,10 +1,8 @@
 import { escapeHtml } from '../_utils.js';
 
 const SITE_URL = 'https://gotvachbg.pages.dev';
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1200&auto=format&fit=crop&q=85';
-
 function safeImage(value) {
-  return value && value.startsWith('http') && !value.includes('pollinations.ai') && !value.includes('[https://') ? value : FALLBACK_IMAGE;
+  return value && value.startsWith('http') && !value.includes('pollinations.ai') && !value.includes('[https://') && !value.includes('photo-1546069901-ba9599a7e63c') ? value : null;
 }
 
 export async function onRequestGet({ env, params }) {
@@ -14,6 +12,9 @@ export async function onRequestGet({ env, params }) {
   const { results: comments } = await env.DB.prepare(
     'SELECT id, name, text, date FROM comments WHERE recipe_id = ? ORDER BY id DESC LIMIT 50'
   ).bind(params.id).all();
+  const { results: relatedRows } = await env.DB.prepare(
+    `SELECT * FROM recipes WHERE id != ? AND (category = ? OR area = ?) ORDER BY featured DESC, date DESC, rowid DESC LIMIT 8`
+  ).bind(params.id, row.category, row.area).all();
 
   const title = escapeHtml(row.title);
   const desc = escapeHtml(row.excerpt);
@@ -22,12 +23,11 @@ export async function onRequestGet({ env, params }) {
   let ingredients = [];
   try { ingredients = JSON.parse(row.ingredients || '[]'); } catch (e) {}
 
-  const ingredientsHtml = ingredients.map(i =>
-    `<li><strong>${escapeHtml(i.measure || '')}</strong> ${escapeHtml(i.name || '')}</li>`
-  ).join('');
-  const stepsHtml = (row.instructions || '').split(/\n\n+/)
-    .filter(Boolean)
-    .map((p, i) => `<li>${escapeHtml(p.replace(/^\s*\d+[.)]\s*/, ''))}</li>`).join('');
+  const ingredientsHtml = ingredients.map(i => `<li><strong>${escapeHtml(i.measure || '')}</strong> ${escapeHtml(i.name || '')}</li>`).join('');
+  const cleanInstruction = value => String(value || '').replace(/^\s*=+\s*/gm,'').replace(/\s*=+\s*(?=\S)/g,' ').replace(/\{\{[^{}]*\}\}/g,'').replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g,'$2').replace(/\[\[([^\]]+)\]\]/g,'$1').trim();
+  const cleanedInstructions = cleanInstruction(row.instructions || '');
+  const stepsHtml = cleanedInstructions.split(/\n\n+/).filter(Boolean).map(p => `<li>${escapeHtml(p.replace(/^\s*\d+[.)]\s*/, ''))}</li>`).join('');
+  const relatedHtml = relatedRows.map(x => `<a class="related-card" href="/recipe/${encodeURIComponent(x.id)}"><div class="related-title">${escapeHtml(x.title)}</div><div class="related-meta">${escapeHtml(x.category)} · ${escapeHtml(x.area)}</div></a>`).join('');
 
   const commentsHtml = comments.length
     ? comments.map(c => `<article class="comment"><strong>${escapeHtml(c.name)}</strong><time>${escapeHtml(c.date)}</time><p>${escapeHtml(c.text)}</p></article>`).join('')
@@ -44,7 +44,7 @@ export async function onRequestGet({ env, params }) {
     recipeCategory:row.category,
     recipeCuisine:row.area,
     recipeIngredient:ingredients.map(i => [i.measure,i.name].filter(Boolean).join(' ')),
-    recipeInstructions: (row.instructions || '').split(/\n\n+/).filter(Boolean).map((text,i)=>({'@type':'HowToStep',position:i+1,text})),
+    recipeInstructions: cleanedInstructions.split(/\n\n+/).filter(Boolean).map((text,i)=>({'@type':'HowToStep',position:i+1,text})),
     mainEntityOfPage:url
   };
 
@@ -64,7 +64,7 @@ export async function onRequestGet({ env, params }) {
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/favorites.js" defer></script>\n<script type="application/ld+json">${JSON.stringify(recipeSchema).replace(/</g,'\\u003c')}</script>
 <style>
-.recipe-page{padding:36px 0 70px}.crumbs{font-size:14px;color:var(--muted);margin-bottom:20px}.recipe-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px}.recipe-main,.recipe-side{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.recipe-main{overflow:hidden}.recipe-cover{width:100%;height:440px;object-fit:cover;display:block}.recipe-body{padding:30px}.recipe-body h1{font-size:clamp(32px,5vw,48px);line-height:1.08;letter-spacing:-1.5px;margin:0 0 14px}.lead{font-size:18px;color:var(--muted)}.facts{display:flex;flex-wrap:wrap;gap:9px;margin:20px 0}.fact{background:var(--soft);padding:9px 12px;border-radius:10px;font-weight:750;font-size:14px}.recipe-body h2{margin-top:34px;font-size:25px}.ingredients,.steps{padding-left:22px}.ingredients li,.steps li{margin:12px 0}.recipe-side{padding:22px;height:max-content;position:sticky;top:18px}.recipe-side h2{margin-top:0}.comment{border-top:1px solid var(--line);padding:15px 0}.comment time{color:var(--muted);font-size:12px;margin-left:8px}.comment p{margin:6px 0}.comment-form{display:grid;gap:10px;margin-top:15px}.comment-form input,.comment-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit}.comment-form textarea{min-height:110px;resize:vertical}.muted{color:var(--muted)}.back{color:var(--brand);text-decoration:none;font-weight:800}.notice{padding:12px;background:#f7f1ea;border-radius:10px;font-size:13px;color:var(--muted)}@media(max-width:850px){.recipe-layout{grid-template-columns:1fr}.recipe-side{position:static}.recipe-cover{height:300px}.recipe-body{padding:22px}}
+.recipe-page{padding:36px 0 70px}.crumbs{font-size:14px;color:var(--muted);margin-bottom:20px}.recipe-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px}.recipe-main,.recipe-side{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.recipe-main{overflow:hidden}.recipe-cover{width:100%;height:440px;object-fit:cover;display:block}.recipe-cover-placeholder{display:grid;place-items:center;background:#eadfce;color:#8a7a6d;font-size:56px}.recipe-body{padding:30px}.recipe-body h1{font-size:clamp(32px,5vw,48px);line-height:1.08;letter-spacing:-1.5px;margin:0 0 14px}.lead{font-size:18px;color:var(--muted)}.facts{display:flex;flex-wrap:wrap;gap:9px;margin:20px 0}.fact{background:var(--soft);padding:9px 12px;border-radius:10px;font-weight:750;font-size:14px}.recipe-body h2{margin-top:34px;font-size:25px}.ingredients,.steps{padding-left:22px}.related{margin-top:40px}.related-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.related-card{display:block;border:1px solid var(--line);border-radius:12px;padding:14px;background:#faf7f2;color:var(--text);text-decoration:none}.related-title{font-weight:800}.related-meta{font-size:12px;color:var(--muted);margin-top:4px}.ingredients li,.steps li{margin:12px 0}.recipe-side{padding:22px;height:max-content;position:sticky;top:18px}.recipe-side h2{margin-top:0}.comment{border-top:1px solid var(--line);padding:15px 0}.comment time{color:var(--muted);font-size:12px;margin-left:8px}.comment p{margin:6px 0}.comment-form{display:grid;gap:10px;margin-top:15px}.comment-form input,.comment-form textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit}.comment-form textarea{min-height:110px;resize:vertical}.muted{color:var(--muted)}.back{color:var(--brand);text-decoration:none;font-weight:800}.notice{padding:12px;background:#f7f1ea;border-radius:10px;font-size:13px;color:var(--muted)}@media(max-width:850px){.recipe-layout{grid-template-columns:1fr}.recipe-side{position:static}.recipe-cover{height:300px}.recipe-body{padding:22px}}
 </style>
 </head>
 <body>
@@ -73,13 +73,13 @@ export async function onRequestGet({ env, params }) {
 <div class="crumbs"><a class="back" href="/">← Към рецептите</a></div>
 <div class="recipe-layout">
 <article class="recipe-main">
-<img class="recipe-cover" src="${escapeHtml(image)}" alt="${title}" loading="eager">
+${image ? `<img class="recipe-cover" src="${escapeHtml(image)}" alt="${title}" loading="eager">` : `<div class="recipe-cover recipe-cover-placeholder" aria-label="Няма снимка">🍲</div>`}
 <div class="recipe-body">
 <h1>${title}</h1>
 <p class="lead">${desc}</p>\n${row.source_id && row.source_id.startsWith("wikibooks:") ? `<p class="notice">Източник: <a href="${escapeHtml("https://bg.wikibooks.org/wiki/" + encodeURIComponent(row.source_id.slice("wikibooks:".length).replace(/ /g, "_")))}" target="_blank" rel="noopener">Уикикниги – Готварска книга</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> · преработено за Готвач БГ.</p>` : ""}\n<div class="recipe-actions"><button class="favorite-btn" type="button" data-favorite-id="${escapeHtml(row.id)}" aria-pressed="false">♡ Добави в любими</button></div>
 <div class="facts"><span class="fact">🍽 ${escapeHtml(row.category)}</span><span class="fact">🌍 ${escapeHtml(row.area)}</span><span class="fact">👨‍🍳 ${escapeHtml(row.author)}</span><span class="fact">📅 ${escapeHtml(row.date)}</span></div>
 <h2>Необходими продукти</h2><ul class="ingredients">${ingredientsHtml}</ul>
-<h2>Начин на приготвяне</h2><ol class="steps">${stepsHtml}</ol>
+<h2>Начин на приготвяне</h2><ol class="steps">${stepsHtml}</ol>${relatedHtml ? `<section class="related"><h2>Подобни рецепти</h2><div class="related-grid">${relatedHtml}</div></section>` : ""}
 </div>
 </article>
 <aside class="recipe-side">
