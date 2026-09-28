@@ -14,6 +14,8 @@ function cleanWikiText(value) {
     .replace(/\[\[([^\]]+)\]\]/g, '$1')
     .replace(/\{\{[^{}]*\}\}/g, '')
     .replace(/'''?/g, '')
+    .replace(/^\s*=+\s*|\s*=+\s*$/gm, '')
+    .replace(/\s*=+\s*(?=\S)/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
