@@ -544,73 +544,107 @@ async function fetchWikitextBatch(titles) {
 export async function findCommonsImage(title) {
   const cleanTitle = String(title || '')
     .replace(/^Готварска книга:\s*/i, '')
-    .replace(/\s*\([^)]*\)\s*$/,'')
+    .replace(/\s*\([^)]*\)\s*$/, '')
     .trim();
 
-  const makeWords = value => String(value || '').toLowerCase()
+  const normalizeWords = value => String(value || '')
+    .toLowerCase()
+    .replace(/[^a-zа-я0-9\s-]/gi, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2 && !/^(по|от|за|със|с|и|на|в|за)$/.test(w));
+    .filter(w => w.length > 2 && !/^(по|от|за|със|с|и|на|в|за|the|and|with|from|of)$/.test(w));
 
-  const queries = [cleanTitle];
-  const words = makeWords(cleanTitle);
-  if (words.length >= 2) queries.push(words.slice(0, 3).join(' '));
-  if (words.length >= 1) queries.push(words[0]);
+  const queries = [{ text: cleanTitle, source: 'bg' }];
 
-  // If Commons does not index the Bulgarian filename, ask Wikidata for
-  // an English label and search Commons with that as a fallback.
+  // Find the Wikidata item for the Bulgarian dish, then fetch its English
+  // label separately. wbsearchentities(language=bg) does not guarantee that
+  // item.label is English even when uselang=en is supplied.
   try {
-    const wdUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
+    const wdSearchUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
       action: 'wbsearchentities',
       search: cleanTitle,
       language: 'bg',
-      uselang: 'en',
       limit: '5',
       format: 'json',
       origin: '*'
     });
-    const wdRes = await fetch(wdUrl, { headers: { 'user-agent': 'GotvachBG/1.0' } });
+    const wdRes = await fetch(wdSearchUrl, { headers: { 'user-agent': 'GotvachBG/1.0' } });
     if (wdRes.ok) {
       const wd = await wdRes.json();
-      for (const item of (wd.search || [])) {
-        const label = item.label || '';
-        if (label && !queries.includes(label)) queries.push(label);
+      const ids = (wd.search || []).map(x => x.id).filter(Boolean);
+      if (ids.length) {
+        const entityUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
+          action: 'wbgetentities',
+          ids: ids.join('|'),
+          props: 'labels|sitelinks',
+          languages: 'en|bg',
+          format: 'json',
+          origin: '*'
+        });
+        const entityRes = await fetch(entityUrl, { headers: { 'user-agent': 'GotvachBG/1.0' } });
+        if (entityRes.ok) {
+          const entityData = await entityRes.json();
+          for (const id of ids) {
+            const entity = entityData.entities && entityData.entities[id];
+            const label = entity && entity.labels && entity.labels.en && entity.labels.en.value;
+            if (label && !queries.some(q => q.text.toLowerCase() === label.toLowerCase())) {
+              queries.push({ text: label, source: 'wikidata-en' });
+            }
+          }
+        }
       }
     }
   } catch (_) {}
 
+  // Also try a compact Bulgarian query. This catches Commons files whose
+  // filenames use Bulgarian words instead of the Wikidata English label.
+  const bgWords = normalizeWords(cleanTitle);
+  if (bgWords.length >= 2) {
+    queries.push({ text: bgWords.slice(0, 3).join(' '), source: 'bg-short' });
+  }
+
   let bestOverall = null;
 
-  for (const query of queries.slice(0, 6)) {
+  for (const query of queries.slice(0, 8)) {
     try {
       const data = await apiQuery({
         action: 'query',
         generator: 'search',
-        gsrsearch: query,
+        gsrsearch: query.text,
         gsrnamespace: '6',
-        gsrlimit: '10',
+        gsrlimit: '20',
         prop: 'imageinfo',
         iiprop: 'url',
         iiurlwidth: '1200'
       });
 
-      const pages = Object.values((data && data.query && data.query.pages) || {});
+      const pages = Array.isArray(data && data.query && data.query.pages)
+        ? data.query.pages
+        : Object.values((data && data.query && data.query.pages) || {});
+
+      const queryWords = normalizeWords(query.text);
       for (const page of pages) {
         if (!page || !/^File:/i.test(page.title || '')) continue;
         const name = page.title.replace(/^File:/i, '').toLowerCase();
-        const score = words.reduce((sum, word) => sum + (name.includes(word) ? 1 : 0), 0);
-        const englishBonus = query !== cleanTitle && name.includes(String(query).toLowerCase()) ? 2 : 0;
-        const total = score + englishBonus;
-        if (!bestOverall || total > bestOverall.score) bestOverall = { page, score: total, query };
+        const matched = queryWords.filter(word => name.includes(word)).length;
+        const exactPhrase = name.includes(query.text.toLowerCase()) ? 5 : 0;
+        const sourceBonus = query.source === 'wikidata-en' ? 3 : 0;
+        const score = matched + exactPhrase + sourceBonus;
+
+        if (!bestOverall || score > bestOverall.score) {
+          bestOverall = { page, score, query };
+        }
       }
     } catch (_) {}
   }
 
-  // Never substitute a completely unrelated file. Require either a direct
-  // title/word match or a Wikidata-derived English title match.
-  if (bestOverall && bestOverall.score >= 1) {
+  // Require a meaningful match. For Wikidata-derived English labels, at least
+  // the label/one keyword must occur in the filename; never use a random image.
+  if (bestOverall && bestOverall.score >= 4) {
     const fileName = bestOverall.page.title.replace(/^File:/i, '');
-    return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
+    return 'https://commons.wikimedia.org/wiki/Special:FilePath/' +
+      encodeURIComponent(fileName) + '?width=1200';
   }
+
   return null;
 }
 
