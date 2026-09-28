@@ -10,7 +10,7 @@ function normalizeSearch(value) {
 }
 
 function matchesSearch(row, query) {
-  const terms = normalizeSearch(query).split(/\\s+/).filter(Boolean);
+  const terms = normalizeSearch(query).split(/\s+/).filter(Boolean);
   if (!terms.length) return true;
   let ingredients = [];
   try { ingredients = JSON.parse(row.ingredients || '[]'); } catch (_) {}
