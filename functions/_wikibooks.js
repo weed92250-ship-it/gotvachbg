@@ -542,41 +542,75 @@ async function fetchWikitextBatch(titles) {
 }
 
 export async function findCommonsImage(title) {
+  const cleanTitle = String(title || '')
+    .replace(/^Готварска книга:\s*/i, '')
+    .replace(/\s*\([^)]*\)\s*$/,'')
+    .trim();
+
+  const makeWords = value => String(value || '').toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !/^(по|от|за|със|с|и|на|в|за)$/.test(w));
+
+  const queries = [cleanTitle];
+  const words = makeWords(cleanTitle);
+  if (words.length >= 2) queries.push(words.slice(0, 3).join(' '));
+  if (words.length >= 1) queries.push(words[0]);
+
+  // If Commons does not index the Bulgarian filename, ask Wikidata for
+  // an English label and search Commons with that as a fallback.
   try {
-    const cleanTitle = String(title || '')
-      .replace(/^Готварска книга:\s*/i, '')
-      .replace(/\s*\([^)]*\)\s*$/,'')
-      .trim();
-    const words = cleanTitle.toLowerCase().split(/\s+/)
-      .filter(w => w.length > 2 && !/^(по|от|за|със|с)$/.test(w));
-
-    const data = await apiQuery({
-      action: 'query',
-      generator: 'search',
-      gsrsearch: cleanTitle,
-      gsrnamespace: '6',
-      gsrlimit: '8',
-      prop: 'imageinfo',
-      iiprop: 'url',
-      iiurlwidth: '1200'
+    const wdUrl = 'https://www.wikidata.org/w/api.php?' + new URLSearchParams({
+      action: 'wbsearchentities',
+      search: cleanTitle,
+      language: 'bg',
+      uselang: 'en',
+      limit: '5',
+      format: 'json',
+      origin: '*'
     });
-
-    const pages = Object.values((data && data.query && data.query.pages) || {});
-    const scored = pages
-      .filter(p => p && /^File:/i.test(p.title || ''))
-      .map(page => {
-        const name = page.title.replace(/^File:/i, '').toLowerCase();
-        const score = words.reduce((sum, word) => sum + (name.includes(word) ? 1 : 0), 0);
-        return { page, score };
-      })
-      .sort((a, b) => b.score - a.score);
-
-    const best = scored[0];
-    if (best && best.score >= Math.max(1, Math.ceil(words.length * 0.5))) {
-      const fileName = best.page.title.replace(/^File:/i, '');
-      return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
+    const wdRes = await fetch(wdUrl, { headers: { 'user-agent': 'GotvachBG/1.0' } });
+    if (wdRes.ok) {
+      const wd = await wdRes.json();
+      for (const item of (wd.search || [])) {
+        const label = item.label || '';
+        if (label && !queries.includes(label)) queries.push(label);
+      }
     }
   } catch (_) {}
+
+  let bestOverall = null;
+
+  for (const query of queries.slice(0, 6)) {
+    try {
+      const data = await apiQuery({
+        action: 'query',
+        generator: 'search',
+        gsrsearch: query,
+        gsrnamespace: '6',
+        gsrlimit: '10',
+        prop: 'imageinfo',
+        iiprop: 'url',
+        iiurlwidth: '1200'
+      });
+
+      const pages = Object.values((data && data.query && data.query.pages) || {});
+      for (const page of pages) {
+        if (!page || !/^File:/i.test(page.title || '')) continue;
+        const name = page.title.replace(/^File:/i, '').toLowerCase();
+        const score = words.reduce((sum, word) => sum + (name.includes(word) ? 1 : 0), 0);
+        const englishBonus = query !== cleanTitle && name.includes(String(query).toLowerCase()) ? 2 : 0;
+        const total = score + englishBonus;
+        if (!bestOverall || total > bestOverall.score) bestOverall = { page, score: total, query };
+      }
+    } catch (_) {}
+  }
+
+  // Never substitute a completely unrelated file. Require either a direct
+  // title/word match or a Wikidata-derived English title match.
+  if (bestOverall && bestOverall.score >= 1) {
+    const fileName = bestOverall.page.title.replace(/^File:/i, '');
+    return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(fileName) + '?width=1200';
+  }
   return null;
 }
 
