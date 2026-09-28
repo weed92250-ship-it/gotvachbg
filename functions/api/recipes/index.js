@@ -4,7 +4,7 @@ function normalizeSearch(value) {
   return String(value || '')
     .toLocaleLowerCase('bg-BG')
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/й/g, 'и')
     .trim();
 }
