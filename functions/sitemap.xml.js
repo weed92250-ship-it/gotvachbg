@@ -10,7 +10,13 @@ function xmlEscape(value) {
 }
 
 export async function onRequestGet({ env }) {
-  const urls = [{ loc: SITE_URL + '/', lastmod: null }];
+  const urls = [
+    { loc: SITE_URL + '/', lastmod: null },
+    { loc: SITE_URL + '/categories.html', lastmod: null },
+    { loc: SITE_URL + '/about.html', lastmod: null },
+    { loc: SITE_URL + '/contacts.html', lastmod: null },
+    { loc: SITE_URL + '/privacy.html', lastmod: null }
+  ];
 
   try {
     const { results = [] } = await env.DB.prepare(
