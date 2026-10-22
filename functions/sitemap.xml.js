@@ -20,7 +20,7 @@ export async function onRequestGet({ env }) {
     for (const recipe of results) {
       if (!recipe?.id) continue;
       const loc = SITE_URL + '/recipe/' + encodeURIComponent(String(recipe.id));
-      const lastmod = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(recipe.date || ''))
+      const lastmod = /^\d{4}-\d{2}-\d{2}$/.test(String(recipe.date || ''))
         ? String(recipe.date)
         : null;
       urls.push({ loc, lastmod });
