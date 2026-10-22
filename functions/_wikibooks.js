@@ -608,7 +608,7 @@ export async function findCommonsImage(title) {
       const pages = Array.isArray(data?.pages) ? data.pages : [];
       const queryWords = normalizeWords(query);
 
-      const peopleTerms = /\\b(girl|woman|women|man|men|boy|child|children|person|people|portrait|selfie|model|face|human|човек|жена|момиче|мъж|дете|портрет)\\b/i;
+      const peopleTerms = /(?:\b(?:girl|woman|women|man|men|boy|child|children|person|people|portrait|selfie|model|face|human)\b|човек|жена|момиче|мъж|дете|портрет|девушка|женщина|мужчина|ребенок)/i;
       let best = null;
       for (const page of pages) {
         const key = String(page?.key || '');
@@ -650,7 +650,7 @@ export async function findCommonsImage(title) {
         : Object.values(data?.query?.pages || {});
       const queryWords = normalizeWords(query);
 
-      const peopleTerms = /\\b(girl|woman|women|man|men|boy|child|children|person|people|portrait|selfie|model|face|human|човек|жена|момиче|мъж|дете|портрет)\\b/i;
+      const peopleTerms = /(?:\b(?:girl|woman|women|man|men|boy|child|children|person|people|portrait|selfie|model|face|human)\b|човек|жена|момиче|мъж|дете|портрет|девушка|женщина|мужчина|ребенок)/i;
       for (const page of pages) {
         if (!page || !/^File:/i.test(page.title || '')) continue;
         const name = page.title.replace(/^File:/i, '').toLowerCase();
